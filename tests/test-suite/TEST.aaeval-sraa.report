@@ -1,0 +1,29 @@
+##=== TEST.aaeval-sraa.report - Report desc for aa tests ----*- perl -*-===##
+#
+# This file defines a report to be generated for the paar test.
+#
+##===----------------------------------------------------------------------===##
+
+# Sort by name
+$SortCol = 1;
+$TrimRepeatedPrefix = 1;
+
+# These are the columns for the report.  The first entry is the header for the
+# column, the second is the regex to use to match the value.  Empty list create
+# seperators, and closures may be put in for custom processing.
+(
+# Name
+ ["Name" , '\'([^\']+)\' Program'],
+ [],
+ ["Total", '([0-9.]+).*Total Alias Queries Performed'],
+ ["NoAlias", '([0-9.]+).*no alias responses'],
+ ["MayAlias", '([0-9.]+).*may alias responses'],
+ ["PartialAlias", '([0-9.]+).*partial alias responses'],
+ ["MustAlias", '([0-9.]+).*must alias responses'],
+ [],
+ ["NumVariables", '([0-9.]+).*Number of variables'],
+ ["NumConstraints", '([0-9.]+).*Number of constraints'],
+ ["NumResolve", '([0-9.]+).*Number of resolve operations'],
+ );
+
+
