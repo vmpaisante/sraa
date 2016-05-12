@@ -15,11 +15,8 @@ $TrimRepeatedPrefix = 1;
 # Name
  ["Name" , '\'([^\']+)\' Program'],
  [],
- ["Total", '([0-9.]+).*Total Alias Queries Performed'],
- ["NoAlias", '([0-9.]+).*no alias responses'],
- ["MayAlias", '([0-9.]+).*may alias responses'],
- ["PartialAlias", '([0-9.]+).*partial alias responses'],
- ["MustAlias", '([0-9.]+).*must alias responses'],
+ ["NumFastStores", '([0-9.]+).*Number of stores deleted'],
+ ["NumFastOther", '([0-9.]+).*Number of other instrs removed'],
  [],
  ["NumVariables", '([0-9.]+).*Number of variables'],
  ["NumConstraints", '([0-9.]+).*Number of constraints'],
