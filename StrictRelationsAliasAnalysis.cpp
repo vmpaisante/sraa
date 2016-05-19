@@ -804,7 +804,7 @@ StrictRelations::CompareResult StrictRelations::compareValues(const Value* V1,
 StrictRelations::CompareResult StrictRelations::compareGEPs(
                                   const GetElementPtrInst* G1,
                                   const GetElementPtrInst* G2) {
-  return N;
+  //return N;
   CompareResult r = E;
   auto i1 = G1->idx_begin();
   auto i2 = G2->idx_begin();
@@ -817,7 +817,6 @@ StrictRelations::CompareResult StrictRelations::compareGEPs(
 
     if(i2 == ie2) v2 = NULL;
     else v2 = *i2;
-
     CompareResult c = compareValues(v1, v2);
     if(c == L) {
       if(r == L or r == E) r = L;
@@ -903,7 +902,7 @@ bool StrictRelations::runOnModule(Module &M) {
   DEBUG(errs() << "Running WorkList engine again.\n");
   wle->solve();
 
-  printStrictRelations(errs());
+  //DEBUG(printStrictRelations(errs()));
 
   NumVariables = variables.size();
   NumConstraints = wle->getNumConstraints();
@@ -959,125 +958,119 @@ StrictRelations::alias(const MemoryLocation &LocA, const MemoryLocation &LocB){
 
 // Constraints definitions
 
+// LT(x) U= {y}
+void insertLT(StrictRelations::Variable* x,
+                               StrictRelations::Variable* y,
+                            std::set<StrictRelations::Variable*> &changed) {
+  if(!x->LT.count(y) and x != y) {
+    x->LT.insert(y);
+    changed.insert(x);
+    if(!y->GT.count(x)) {
+      y->GT.insert(x);
+      changed.insert(y);
+    }
+  }
+}
+
+// GT(x) U= {y}
+void insertGT(StrictRelations::Variable* x,
+                               StrictRelations::Variable* y,
+                            std::set<StrictRelations::Variable*> &changed) {
+  if(!x->GT.count(y) and x != y) {
+    x->GT.insert(y);
+    changed.insert(x);
+    if(!y->LT.count(x)) {
+      y->LT.insert(x);
+      changed.insert(y);
+    }
+  }
+}
+
 void LT::resolve() const {
   // x < y
   DEBUG(errs() << "Resolving: ");
   DEBUG(print(errs()));
-  bool lchanged = false;
-  bool rchanged = false;
+  std::set<StrictRelations::Variable*> changed;
+  
   // LT(y) U= LT(x) U {x}
-  if(!right->LT.count(left) and right != left) {
-    right->LT.insert(left);
-    rchanged = true;
-  }
+  insertLT(right, left, changed);
+
   for(auto i : left->LT) {
-    if(!right->LT.count(i) and right != i) {
-      right->LT.insert(i);
-      rchanged = true;
-    }
+    insertLT(right, i, changed);
   }
   // GT(x) U= GT(y) U {y}
-  if(!left->GT.count(right) and left != right) {
-    left->GT.insert(right);
-    lchanged = true;
-  }
+  insertGT(left, right, changed);
   for(auto i : right->GT) {
-    if(!left->GT.count(i) and left != i) {
-      left->GT.insert(i);
-      lchanged = true;
-    }
+    insertGT(left, i, changed);
   }
-  if(lchanged)
-    for(auto i : left->constraints) if(i != this) engine->add(i, false);
-  if(rchanged)
-    for(auto i : right->constraints) if(i != this) engine->add(i, false);
+  // Adding back constraints from changed abstract values
+  for(auto c : changed)
+    for(auto i : c->constraints)
+      if(i != this) engine->add(i, false);
 }  
 void LE::resolve() const { 
-  // x < y
+  // x <= y
   DEBUG(errs() << "Resolving: ");
   DEBUG(print(errs()));
-  bool lchanged = false;
-  bool rchanged = false;
+  std::set<StrictRelations::Variable*> changed;
+  
   // LT(y) U= LT(x)
   for(auto i : left->LT) {
-    if(!right->LT.count(i) and right != i) {
-      right->LT.insert(i);
-      rchanged = true;
-    }
+    insertLT(right, i, changed);
   }
   // GT(x) U= GT(y)
   for(auto i : right->GT) {
-    if(!left->GT.count(i) and left != i) {
-      left->GT.insert(i);
-      lchanged = true;
-    }
+    insertGT(left, i, changed);
   }
-  if(lchanged)
-    for(auto i : left->constraints) if(i != this) engine->add(i, false);
-  if(rchanged)
-    for(auto i : right->constraints) if(i != this) engine->add(i, false);
+  // Adding back constraints from changed abstract values
+  for(auto c : changed)
+    for(auto i : c->constraints)
+      if(i != this) engine->add(i, false);
 }
 void REQ::resolve() const { 
   // x = y
   DEBUG(errs() << "Resolving: ");
   DEBUG(print(errs()));
-  bool lchanged = false;
-  bool rchanged = false;
+  std::set<StrictRelations::Variable*> changed;
   // LT(x) U= LT(y)
   for(auto i : right->LT) {
-    if(!left->LT.count(i) and left != i) {
-      left->LT.insert(i);
-      lchanged = true;
-    }
+    insertLT(left, i, changed);
   }
   // LT(y) U= LT(x)
   for(auto i : left->LT) {
-    if(!right->LT.count(i) and right != i) {
-      right->LT.insert(i);
-      rchanged = true;
-    }
+    insertLT(right, i, changed);
   }
   // GT(x) U= GT(y)
   for(auto i : right->GT) {
-    if(!left->GT.count(i) and left != i) {
-      left->GT.insert(i);
-      lchanged = true;
-    }
+    insertGT(left, i, changed);
   }
   // GT(y) U= GT(x)
   for(auto i : left->GT) {
-    if(!right->GT.count(i) and right != i) {
-      right->GT.insert(i);
-      rchanged = true;
-    }
+    insertGT(right, i, changed);
   }
-  if(lchanged)
-    for(auto i : left->constraints) if(i != this) engine->add(i, false);
-  if(rchanged)
-    for(auto i : right->constraints) if(i != this) engine->add(i, false);
+  // Adding back constraints from changed abstract values
+  for(auto c : changed)
+    for(auto i : c->constraints)
+      if(i != this) engine->add(i, false);
 }
 
 void EQ::resolve() const { 
   // x = y
   DEBUG(errs() << "Resolving: ");
   DEBUG(print(errs()));
-  bool lchanged = false;
+  std::set<StrictRelations::Variable*> changed;
   // LT(x) U= LT(y)
   for(auto i : right->LT) {
-    if(!left->LT.count(i) and left != i) {
-      left->LT.insert(i);
-      lchanged = true;
-    }
+    insertLT(left, i, changed);
   }
   // GT(x) U= GT(y)
   for(auto i : right->GT) {
-    if(!left->GT.count(i) and left != i) {
-      left->GT.insert(i);
-      lchanged = true;
-    }
+    insertGT(left, i, changed);
   }
-  if(lchanged)
-    for(auto i : left->constraints) if(i != this) engine->add(i, false);
+  // Adding back constraints from changed abstract values
+  for(auto c : changed)
+    for(auto i : c->constraints)
+      if(i != this) engine->add(i, false);
 }
 
 std::set<StrictRelations::Variable*> intersect
@@ -1101,6 +1094,7 @@ void PHI::resolve() const {
   // x = I( xi )
   DEBUG(errs() << "Resolving: ");
   DEBUG(print(errs()));
+  std::set<StrictRelations::Variable*> changed;
   // Growth checks
   bool gu = false, gd = false;
   for (auto i : operands) if (i->LT.count(left)) { gu = true; break; }
@@ -1152,22 +1146,17 @@ void PHI::resolve() const {
   ULT.erase(left);
   UGT.erase(left);
   // U= part
-  bool changed = false;
   for(auto i : ULT) {
-    if(!left->LT.count(i)) {
-      left->LT.insert(i);
-      changed = true;
-    }
+    insertLT(left, i, changed);
   }
   for(auto i : UGT) {
-    if(!left->GT.count(i)) {
-      left->GT.insert(i);
-      changed = true;
-    }
+    insertGT(left, i, changed);
   }
-  if(changed){
-    for(auto i : left->constraints) if(i != this) engine->add(i);
-  }
+
+  // Adding back constraints from changed abstract values
+  for(auto c : changed)
+    for(auto i : c->constraints)
+      if(i != this) engine->add(i, false);
 }
 
 void LT::print(raw_ostream &OS) const {
