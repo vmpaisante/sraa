@@ -679,8 +679,14 @@ const Use* idx_end){
   } else {
     Range a = RA->getRange(indx);
     //updating lower and higher ranges
-    r.setLower(APInt(MAX_BIT_INT, base_ptr_num_primitive) * a.getLower());
-    r.setUpper(APInt(MAX_BIT_INT, base_ptr_num_primitive) * a.getUpper());
+    if(a.getLower().eq(Min))
+      r.setLower(Min);
+    else
+      r.setLower(APInt(MAX_BIT_INT, base_ptr_num_primitive) * a.getLower());
+    if(a.getUpper().eq(Max))
+      r.setUpper(Max);
+    else
+      r.setUpper(APInt(MAX_BIT_INT, base_ptr_num_primitive) * a.getUpper());
   }
 
   //parse sequential indexes
@@ -733,7 +739,7 @@ void StrictRelations::buildDepGraph(Module &M) {
           const Value* base = p->getPointerOperand();
           // Geting bit range of offset
           Range r = processGEP (base, p->idx_begin(), p->idx_end());
-
+          
           if(!variables.count(p)) variables[p] =
                                         new StrictRelations::Variable(p);
           if(!variables.count(base)) variables[base] =
@@ -844,17 +850,28 @@ void StrictRelations::collectConstraintsFromDepGraph() {
       for(auto ke = i->edges.end(); ki != ke; ki++) {
         DepGraph::DepEdge* k = *ki;
         // Edges j and k. Base pointer i.
-        if(j->range.getUpper().slt(k->range.getLower())
-                                      or compareGEPs(j->gep, k->gep) == L) {
-          // PAREI AQUI
+        if(j->range.getUpper().slt(k->range.getLower())) {
           Variable* jv = *(j->target->variables.begin());
           Variable* kv = *(k->target->variables.begin());
           Constraint* c = new LT(wle, jv, kv);
           jv->constraints.insert(c);
           kv->constraints.insert(c);
           wle->add(c);
-        } else if (j->range.getLower().sgt(k->range.getUpper())
-                                      or compareGEPs(j->gep, k->gep) == G) {
+        } else if (compareGEPs(j->gep, k->gep) == L) {
+          Variable* jv = *(j->target->variables.begin());
+          Variable* kv = *(k->target->variables.begin());
+          Constraint* c = new LT(wle, jv, kv);
+          jv->constraints.insert(c);
+          kv->constraints.insert(c);
+          wle->add(c);
+        } else if (j->range.getLower().sgt(k->range.getUpper())) {
+          Variable* jv = *(j->target->variables.begin());
+          Variable* kv = *(k->target->variables.begin());
+          Constraint* c = new LT(wle, kv, jv);
+          jv->constraints.insert(c);
+          kv->constraints.insert(c);
+          wle->add(c);
+        } else if (compareGEPs(j->gep, k->gep) == G) {
           Variable* jv = *(j->target->variables.begin());
           Variable* kv = *(k->target->variables.begin());
           Constraint* c = new LT(wle, kv, jv);
@@ -886,11 +903,36 @@ bool StrictRelations::runOnModule(Module &M) {
   DEBUG(errs() << "Running WorkList engine again.\n");
   wle->solve();
 
+  printStrictRelations(errs());
+
   NumVariables = variables.size();
   NumConstraints = wle->getNumConstraints();
   return false;
 }
 
+void StrictRelations::printStrictRelations(raw_ostream &OS){
+  OS << "Strict Relations:\n";
+  OS << "-------------------------------------------------\n";
+  for(auto i : variables) {
+    OS << "Variable: ";
+    if(i.first->getValueName() == NULL) OS << *(i.first);
+    else OS << i.first->getName();
+    OS << "\nLT: {";
+    for(auto j : i.second->LT) {
+      if(j->v->getValueName() == NULL) OS << *(j->v);
+      else OS << j->v->getName();
+      OS << "; ";
+    }
+    OS << "}\nGT: {";
+    for(auto j : i.second->GT) {
+      if(j->v->getValueName() == NULL) OS << *(j->v);
+      else OS << j->v->getName();
+      OS << "; ";
+    }
+    OS << "}\n";
+  }
+  OS << "-------------------------------------------------\n";
+}
 
 void StrictRelations::getAnalysisUsage(AnalysisUsage &AU) const {
   AliasAnalysis::getAnalysisUsage(AU);

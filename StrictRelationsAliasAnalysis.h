@@ -78,6 +78,7 @@ public:
     if(variables.count(V)) return variables.at(V);
     else return NULL;
   }
+  void printStrictRelations(raw_ostream &OS);
  
 private:
   InterProceduralRACousot *RA;
