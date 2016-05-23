@@ -72,13 +72,14 @@ public:
     std::set<Variable*> GT;
     std::set<Constraint*> constraints;
     Variable(const Value* V) : v(V) { }
+    void printStrictRelations(raw_ostream &OS);
   };
 
   Variable* getVariable(Value * V) {
     if(variables.count(V)) return variables.at(V);
     else return NULL;
   }
-  void printStrictRelations(raw_ostream &OS);
+  void printAllStrictRelations(raw_ostream &OS);
  
 private:
   InterProceduralRACousot *RA;

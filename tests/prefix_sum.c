@@ -1,4 +1,5 @@
 void prefix_sum_chal(int* v, int N) {
+ if(N > 0) {
   int i, j;
   for (i = 0; i < N; i++) {
     v[i] = 0;
@@ -6,4 +7,5 @@ void prefix_sum_chal(int* v, int N) {
       v[i] += v[j]; // Can we disambiguate pointers here?
     }
   }
+ }
 }

@@ -27,6 +27,7 @@ extern APInt Zero;
 
 Primitives StrictRelations::P;
 
+
 STATISTIC(NumVariables, "Number of variables");
 STATISTIC(NumConstraints, "Number of constraints");
 STATISTIC(NumResolve, "Number of resolve operations");
@@ -49,7 +50,7 @@ void StrictRelations::collectConstraintsFromModule(Module &M) {
   for (Module::iterator m = M.begin(), me = M.end(); m != me; ++m) {
     for (Function::iterator b = m->begin(), be = m->end(); b != be; ++b) {
       for (BasicBlock::iterator I = b->begin(), ie = b->end(); I != ie; ++I) {
-        variables[I] = new Variable(I);
+        if(!variables.count(I)) variables[I] = new StrictRelations::Variable(I);
         // Addition
         if (isa<llvm::BinaryOperator>(&(*I))
         && (&(*I))->getOpcode()==Instruction::Add) { 
@@ -511,7 +512,7 @@ void StrictRelations::collectConstraintsFromModule(Module &M) {
             const Value* op = p->getIncomingValue(i);
             if(!variables.count(op)) variables[op] =
                                           new StrictRelations::Variable(op);
-            vset.insert(variables[op]);
+            vset.insert(variables.at(op));
           }
           Constraint* c = new PHI(wle, variables[I], vset);
 
@@ -902,27 +903,29 @@ bool StrictRelations::runOnModule(Module &M) {
   DEBUG(errs() << "Running WorkList engine again.\n");
   wle->solve();
 
-  //DEBUG(printStrictRelations(errs()));
+  DEBUG(printAllStrictRelations(errs()));
 
   NumVariables = variables.size();
   NumConstraints = wle->getNumConstraints();
   return false;
 }
 
-void StrictRelations::printStrictRelations(raw_ostream &OS){
+void StrictRelations::printAllStrictRelations(raw_ostream &OS){
   OS << "Strict Relations:\n";
   OS << "-------------------------------------------------\n";
   for(auto i : variables) {
-    OS << "Variable: ";
+    OS << "Variable: " ;
     if(i.first->getValueName() == NULL) OS << *(i.first);
     else OS << i.first->getName();
     OS << "\nLT: {";
+    if(i.second->LT.empty()) OS << "E";
     for(auto j : i.second->LT) {
       if(j->v->getValueName() == NULL) OS << *(j->v);
       else OS << j->v->getName();
       OS << "; ";
     }
     OS << "}\nGT: {";
+    if(i.second->GT.empty()) OS << "E";
     for(auto j : i.second->GT) {
       if(j->v->getValueName() == NULL) OS << *(j->v);
       else OS << j->v->getName();
@@ -931,6 +934,26 @@ void StrictRelations::printStrictRelations(raw_ostream &OS){
     OS << "}\n";
   }
   OS << "-------------------------------------------------\n";
+}
+
+void StrictRelations::Variable::printStrictRelations(raw_ostream &OS){
+    if(v->getValueName() == NULL) OS << *(v);
+    else OS << v->getName();
+    OS << "\nLT: {";
+    if(LT.empty()) OS << "E";
+    for(auto j : LT) {
+      if(j->v->getValueName() == NULL) OS << *(j->v);
+      else OS << j->v->getName();
+      OS << "; ";
+    }
+    OS << "}\nGT: {";
+    if(GT.empty()) OS << "E";
+    for(auto j : GT) {
+      if(j->v->getValueName() == NULL) OS << *(j->v);
+      else OS << j->v->getName();
+      OS << "; ";
+    }
+    OS << "}\n";
 }
 
 void StrictRelations::getAnalysisUsage(AnalysisUsage &AU) const {
@@ -988,8 +1011,11 @@ void insertGT(StrictRelations::Variable* x,
 
 void LT::resolve() const {
   // x < y
-  DEBUG(errs() << "Resolving: ");
-  DEBUG(print(errs()));
+  //DEBUG(errs() << "Resolving: ");
+  //DEBUG(print(errs()));
+  //DEBUG(errs() << "Before: \n");
+  //DEBUG(left->printStrictRelations(errs()));
+  //DEBUG(right->printStrictRelations(errs()));
   std::set<StrictRelations::Variable*> changed;
   
   // LT(y) U= LT(x) U {x}
@@ -1007,11 +1033,19 @@ void LT::resolve() const {
   for(auto c : changed)
     for(auto i : c->constraints)
       if(i != this) engine->add(i, false);
+
+  //DEBUG(errs() << "After: \n");
+  //DEBUG(left->printStrictRelations(errs()));
+  //DEBUG(right->printStrictRelations(errs()));
 }  
 void LE::resolve() const { 
   // x <= y
-  DEBUG(errs() << "Resolving: ");
-  DEBUG(print(errs()));
+  //DEBUG(errs() << "Resolving: ");
+  //DEBUG(print(errs()));
+  //DEBUG(errs() << "Before: \n");
+  //DEBUG(left->printStrictRelations(errs()));
+  //DEBUG(right->printStrictRelations(errs()));
+  
   std::set<StrictRelations::Variable*> changed;
   
   // LT(y) U= LT(x)
@@ -1026,11 +1060,19 @@ void LE::resolve() const {
   for(auto c : changed)
     for(auto i : c->constraints)
       if(i != this) engine->add(i, false);
+
+  //DEBUG(errs() << "After: \n");
+  //DEBUG(left->printStrictRelations(errs()));
+  //DEBUG(right->printStrictRelations(errs()));
 }
 void REQ::resolve() const { 
   // x = y
-  DEBUG(errs() << "Resolving: ");
-  DEBUG(print(errs()));
+  //DEBUG(errs() << "Resolving: ");
+  //DEBUG(print(errs()));
+  //DEBUG(errs() << "Before: \n");
+  //DEBUG(left->printStrictRelations(errs()));
+  //DEBUG(right->printStrictRelations(errs()));
+
   std::set<StrictRelations::Variable*> changed;
   // LT(x) U= LT(y)
   for(auto i : right->LT) {
@@ -1052,12 +1094,19 @@ void REQ::resolve() const {
   for(auto c : changed)
     for(auto i : c->constraints)
       if(i != this) engine->add(i, false);
+  
+  //DEBUG(errs() << "After: \n");
+  //DEBUG(left->printStrictRelations(errs()));
+  //DEBUG(right->printStrictRelations(errs()));
 }
 
 void EQ::resolve() const { 
   // x = y
-  DEBUG(errs() << "Resolving: ");
-  DEBUG(print(errs()));
+  //DEBUG(errs() << "Resolving: ");
+  //DEBUG(print(errs()));
+  //DEBUG(errs() << "Before: \n");
+  //DEBUG(left->printStrictRelations(errs()));
+  //DEBUG(right->printStrictRelations(errs()));
   std::set<StrictRelations::Variable*> changed;
   // LT(x) U= LT(y)
   for(auto i : right->LT) {
@@ -1071,6 +1120,10 @@ void EQ::resolve() const {
   for(auto c : changed)
     for(auto i : c->constraints)
       if(i != this) engine->add(i, false);
+  
+  //DEBUG(errs() << "After: \n");
+  //DEBUG(left->printStrictRelations(errs()));
+  //DEBUG(right->printStrictRelations(errs()));
 }
 
 std::set<StrictRelations::Variable*> intersect
@@ -1092,8 +1145,11 @@ std::set<StrictRelations::Variable*> unionize
 
 void PHI::resolve() const { 
   // x = I( xi )
-  DEBUG(errs() << "Resolving: ");
-  DEBUG(print(errs()));
+  //DEBUG(errs() << "Resolving: ");
+  //DEBUG(print(errs()));
+  //DEBUG(errs() << "Before: \n");
+  //DEBUG(left->printStrictRelations(errs()));
+  //for(auto i : operands) DEBUG(i->printStrictRelations(errs()));
   std::set<StrictRelations::Variable*> changed;
   // Growth checks
   bool gu = false, gd = false;
@@ -1157,6 +1213,10 @@ void PHI::resolve() const {
   for(auto c : changed)
     for(auto i : c->constraints)
       if(i != this) engine->add(i, false);
+
+  //DEBUG(errs() << "After: \n");
+  //DEBUG(left->printStrictRelations(errs()));
+  //for(auto i : operands) DEBUG(i->printStrictRelations(errs()));
 }
 
 void LT::print(raw_ostream &OS) const {
