@@ -1167,8 +1167,6 @@ void PHI::resolve() const {
     } while (!ULT.count(left) and i != operands.end());
     for (auto e = operands.end(); i != e; i++)
       if(!(*i)->LT.count(left)) ULT = intersect(ULT, (*i)->LT);
-    // Union part
-    for(auto i : operands) if(i->LT.count(left)) ULT = unionize(ULT, i->LT);
     
   } else {
     // LT(x) U= I( LT(xi) )
@@ -1188,8 +1186,6 @@ void PHI::resolve() const {
     } while (!UGT.count(left) and i != operands.end());
     for (auto e = operands.end(); i != e; i++)
       if(!(*i)->GT.count(left)) UGT = intersect(UGT, (*i)->GT);
-    // Union part
-    for(auto i : operands) if(i->GT.count(left)) UGT = unionize(UGT, i->GT);
     
   } else {
     // GT(x) U= I( GT(xi) )
