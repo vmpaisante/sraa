@@ -10,6 +10,8 @@
 
 #include <queue>
 #include <set>
+#include <unordered_set>
+#include <unordered_map>
 #include <map>
 #include <utility>
 
@@ -17,12 +19,8 @@ typedef InterProceduralRA<Cousot> InterProceduralRACousot;
 
 namespace {
 
-//Forward declarations
-class WorkListEngine;
-class Constraint;
-class DepGraph;
-
-/// Representation of types as sequences of primitive values (now bits!)
+////////////////////////////////////////////////////////////////////////////////
+// Representation of types as sequences of primitive values (now bits!)
 class Primitives {
   public:
   //Holds a Primitive Layout for a determined Type
@@ -49,10 +47,16 @@ class Primitives {
   llvm::Type* getTypeInside(Type* type, int i);
   int getSumBehind(std::vector<int> v, unsigned int i);
 };
+////////////////////////////////////////////////////////////////////////////////
+
+//Forward declarations
+class WorkListEngine;
+class Constraint;
 
 class StrictRelations : public ModulePass, public AliasAnalysis {
 
 public:
+  ~StrictRelations();
   static char ID; // Class identification, replacement for typeinfo
   StrictRelations() : ModulePass(ID){}
 
@@ -65,15 +69,77 @@ public:
       return (AliasAnalysis*)this;
     return this;
   }
-
+  
   struct Variable {
     const Value* v;
-    std::set<Variable*> LT;
-    std::set<Variable*> GT;
-    std::set<Constraint*> constraints;
+    std::unordered_set<Variable*> LT;
+    std::unordered_set<Variable*> GT;
+    std::unordered_set<Constraint*> constraints;
     Variable(const Value* V) : v(V) { }
+    
     void printStrictRelations(raw_ostream &OS);
   };
+  
+  //Forward declarations
+  class DepEdge;
+
+  struct DepNode {
+    const Value* v;
+    std::unordered_set<DepEdge*> inedges;
+    std::unordered_set<DepEdge*> outedges;
+    //Types
+    bool arg;
+    bool unk;
+    bool global;
+    bool alloca;
+    bool call;
+    std::unordered_set<const Value*> locs;
+    
+    DepNode(const Value* V) : v(V) {
+      arg = false; unk = false; global = false; call = false;
+      mustalias = new std::unordered_set<DepNode*>();
+      mustalias->insert(this);
+    }
+    
+    static void addEdge(DepNode* in, DepNode* out, Range r){
+      DepEdge* e = new DepEdge(in, out, r);
+      in->inedges.insert(e);
+      out->outedges.insert(e);  
+    }
+    static void addEdge(DepNode* in, DepNode* out, Range r, const Value* o) {
+      DepEdge* e = new DepEdge(in, out, r, o);
+      in->inedges.insert(e);
+      out->outedges.insert(e); 
+    }
+  
+    // function and structures for the local analysis
+    DepNode *local_root;
+    std::map< DepNode*, std::pair<int, Range> > path_to_root;
+    void getPathToRoot();
+    
+    // must alias information
+    std::unordered_set<DepNode*>* mustalias;
+    void coalesce (DepNode*);
+    
+  };
+  
+  struct DepEdge {
+    DepNode* const  in;
+    DepNode* const out;
+    const Range range;
+    const Value* const offset;
+    
+    DepEdge(DepNode* In, DepNode* Out, const Range R, 
+    const Value* Offset = NULL) : 
+      in(In), out(Out), range(R), offset(Offset) { }
+      
+    static void deleteEdge(DepEdge* e){
+      e->in->inedges.erase(e);
+      e->out->outedges.erase(e);
+      delete e;  
+    }
+  };
+
 
   Variable* getVariable(Value * V) {
     if(variables.count(V)) return variables.at(V);
@@ -81,30 +147,72 @@ public:
   }
   void printAllStrictRelations(raw_ostream &OS);
  
-private:
+
   InterProceduralRACousot *RA;
-  std::map<const Value*, Variable*> variables;
+  std::unordered_map<const Value*, Variable*> variables;
+  std::unordered_map<const Value*, DepNode*> nodes;
   WorkListEngine* wle;
-  DepGraph* dg;
-  
-  // Function that collects comparisons from the instructions in the module
-  void collectConstraintsFromModule(Module &M);
-  Range processGEP(const Value*, const Use*, const Use*);
-  void buildDepGraph(Module &M);
-  enum CompareResult {L, G, E, N};
-  CompareResult compareValues(const Value*, const Value*);
-  CompareResult compareGEPs(const GetElementPtrInst*, const GetElementPtrInst*);
-  void collectConstraintsFromDepGraph();
-      
+            
   void getAnalysisUsage(AnalysisUsage &AU) const override;
-  bool runOnModule(Module &M) override;
+  
   AliasResult alias(const MemoryLocation &LocA,
                               const MemoryLocation &LocB) override;
+  bool runOnModule(Module &M) override;
+
+private:  
+
+  bool aliastest1(const Value* p1, const Value* p2);
+  bool aliastest2(const Value* p1, const Value* p2);
+  bool aliastest3(const Value* p1, const Value* p2);
+  
+  enum CompareResult {L, G, E, N};
+  CompareResult compareValues(const Value*, const Value*);
+  bool disjointGEPs(const GetElementPtrInst*, const GetElementPtrInst*);
+  
+  // Phases
+  Range processGEP(const Value*, const Use*, const Use*);
+  void collectConstraintsFromModule(Module &M);
+  void buildDepGraph(Module &M);
+  void collectTypes();
+  void propagateTypes();
+  void propagateArgs(std::set<DepNode*> &args);
+  void propagateGlobals(std::set<DepNode*> &globals);
+  void propagateUnks(std::set<DepNode*> &unks);
+  void propagateAlloca(DepNode*);
+
+  //Times
+  float phase1;
+  float phase2;
+  float phase3;
+  float phases;
+  float test1;
+  float test2;
+  float test3;
 
   static Primitives P;
 };
+////////////////////////////////////////////////////////////////////////////////
 
 //Worklist engine declarations
+class Constraint;
+
+class WorkListEngine {
+public:
+  void solve();
+  void add(const Constraint*);
+  void push(const Constraint*);
+  void printConstraints(raw_ostream &OS);
+  std::unordered_map<const Constraint*, bool> getConstraints() { return constraints; }
+  int getNumConstraints() { return constraints.size(); }
+
+  //WorkListEngine is in charge of constraint deletion
+  ~WorkListEngine();
+  
+private:
+  std::queue<const Constraint*> worklist;
+  std::unordered_map<const Constraint*, bool> constraints;
+};
+
 class Constraint {
 protected:
   WorkListEngine * engine;
@@ -114,21 +222,8 @@ public:
   virtual ~Constraint() {}
 };
 
-class WorkListEngine {
-public:
-  void solve();
-  void add(Constraint*, bool isnew = true);
-  //WorkListEngine is in charge of constraint deletion
-  ~WorkListEngine();
-  void printConstraints(raw_ostream &OS);
-  std::map<const Constraint*, bool> getConstraints() { return constraints; }
-  int getNumConstraints() { return constraints.size(); }
-private:
-  std::queue<const Constraint*> worklist;
-  std::map<const Constraint*, bool> constraints;
-};
-
-// Constraint definitions
+////////////////////////////////////////////////////////////////////////////////
+// Constraint types declaration
 class LT : public Constraint {
   StrictRelations::Variable * const left, * const right;
 public:
@@ -167,56 +262,16 @@ public:
 
 class PHI : public Constraint {
   StrictRelations::Variable * const left;
-  std::set<StrictRelations::Variable*> operands;
+  std::unordered_set<StrictRelations::Variable*> operands;
 public:
   PHI(WorkListEngine* W, StrictRelations::Variable* L,
-                          std::set<StrictRelations::Variable*> Operands)
+                          std::unordered_set<StrictRelations::Variable*> Operands)
                           : left(L), operands(Operands) { engine = W; };
   void resolve() const override;
   void print(raw_ostream &OS) const override;
 };
 
-//Dependance graph declarations
-class DepGraph {
-public:
-  void addVariable(StrictRelations::Variable*);
-  // In constraints x = y is necessary to coalesce the nodes
-  void coalesce (StrictRelations::Variable*, StrictRelations::Variable*);
-  //In the case of a GEP
-  void addEdge(StrictRelations::Variable*, StrictRelations::Variable*, Range,
-                                                      const GetElementPtrInst*);
-
-  // Forward declaration
-  struct DepEdge;
-
-  enum DepOp { Addition, Subtraction, Multiplication };
-
-  struct DepNode {
-    std::set<StrictRelations::Variable*> variables;
-    std::set<DepEdge*> edges;
-    std::set<DepEdge*> inedges;
-  };
-
-  struct DepEdge {
-    DepNode* target;
-    DepOp sign;
-    DepOp operation;
-    DepNode* operand;
-    // GAMBIARRA!!
-    Range range;
-    const GetElementPtrInst* gep;
-  };
-private:
-
-  std::map<StrictRelations::Variable*, DepNode*> nodes;
-
-public:
-  std::map<StrictRelations::Variable*, DepNode*>::iterator
-                                            begin() { return nodes.begin(); }
-  std::map<StrictRelations::Variable*, DepNode*>::iterator
-                                            end() { return nodes.end(); }
-
-};
+////////////////////////////////////////////////////////////////////////////////
 
 }
 
