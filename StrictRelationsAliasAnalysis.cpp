@@ -258,7 +258,6 @@ StrictRelations::alias(const MemoryLocation &LocA, const MemoryLocation &LocB) {
   const Value *p1, *p2;
   p1 = LocA.Ptr;
   p2 = LocB.Ptr;
-  
   if(nodes[p1]->mustalias == nodes[p2]->mustalias) return MustAlias;
   
   bool t1 = aliastest1(p1, p2);
@@ -266,7 +265,9 @@ StrictRelations::alias(const MemoryLocation &LocA, const MemoryLocation &LocB) {
   bool t3 = aliastest3(p1, p2);
   
   if(t1 or t2 or t3){ NumNoAlias++; return NoAlias;}
-  else return AliasAnalysis::alias(LocA, LocB);   
+  else return AliasAnalysis::alias(LocA, LocB);
+  
+  AliasAnalysis::alias(LocA, LocB);   
 }
 
 bool StrictRelations::aliastest1(const Value* p1, const Value* p2) {
@@ -394,6 +395,8 @@ bool StrictRelations::runOnModule(Module &M) {
   InitializeAliasAnalysis(this, &M.getDataLayout());
   RA = &getAnalysis<InterProceduralRACousot>();
   wle = new WorkListEngine();
+  global_variable_translator = (void*) 
+                                new BitVectorPositionTranslator<Variable*>();
   test1 = 0; test2 = 0; test3 = 0;
   clock_t t;
   t = clock();
@@ -404,7 +407,7 @@ bool StrictRelations::runOnModule(Module &M) {
   t = clock() - t;
   phase1 = ((float)t)/CLOCKS_PER_SEC;
   
-  DEBUG_WITH_TYPE("phases", errs() << "Building dependence graph.\n");  
+    DEBUG_WITH_TYPE("phases", errs() << "Building dependence graph.\n");  
   buildDepGraph(M);
   collectTypes();
   propagateTypes();
@@ -1539,7 +1542,7 @@ void WorkListEngine::push(const Constraint* C) {
 // LT(x) U= {y}
 void insertLT(StrictRelations::Variable* x,
                                StrictRelations::Variable* y,
-                            std::unordered_set<StrictRelations::Variable*> &changed) {
+                               StrictRelations::VariableSet &changed) {
   if(!x->LT.count(y) and x != y) {
     x->LT.insert(y);
     changed.insert(x);
@@ -1553,7 +1556,7 @@ void insertLT(StrictRelations::Variable* x,
 // GT(x) U= {y}
 void insertGT(StrictRelations::Variable* x,
                                StrictRelations::Variable* y,
-                            std::unordered_set<StrictRelations::Variable*> &changed) {
+                               StrictRelations::VariableSet &changed) {
   if(!x->GT.count(y) and x != y) {
     x->GT.insert(y);
     changed.insert(x);
@@ -1567,7 +1570,7 @@ void insertGT(StrictRelations::Variable* x,
 // LT(x) U= LT(y)
 void unionLT(StrictRelations::Variable* x,
                                StrictRelations::Variable* y,
-                            std::unordered_set<StrictRelations::Variable*> &changed) {
+                               StrictRelations::VariableSet &changed) {
   for(auto i : y->LT) {
     insertLT(x, i, changed);
   }
@@ -1576,23 +1579,23 @@ void unionLT(StrictRelations::Variable* x,
 // GT(x) U= GT(y)
 void unionGT(StrictRelations::Variable* x,
                                StrictRelations::Variable* y,
-                            std::unordered_set<StrictRelations::Variable*> &changed) {
+                               StrictRelations::VariableSet &changed) {
   for(auto i : y->GT) {
     insertGT(x, i, changed);
   }
 }
 
-std::unordered_set<StrictRelations::Variable*> intersect
-                          (std::unordered_set<StrictRelations::Variable*> &s1,
-                           std::unordered_set<StrictRelations::Variable*> &s2) {
-  std::unordered_set<StrictRelations::Variable*> r;
+StrictRelations::VariableSet intersect
+                          (StrictRelations::VariableSet &s1,
+                           StrictRelations::VariableSet &s2) {
+  StrictRelations::VariableSet r;
   for(auto i : s1) if(s2.count(i)) r.insert(i);
   return r;
 }
 
 void LT::resolve() const {
   // x < y
-  std::unordered_set<StrictRelations::Variable*> changed;
+  StrictRelations::VariableSet changed;
   
   // LT(y) U= LT(x) U {x}
   unionLT(right, left, changed);
@@ -1610,7 +1613,7 @@ void LT::resolve() const {
 }  
 void LE::resolve() const { 
   // x <= y
-  std::unordered_set<StrictRelations::Variable*> changed;
+  StrictRelations::VariableSet changed;
   
   // LT(y) U= LT(x)
     unionLT(right, left, changed);
@@ -1624,7 +1627,7 @@ void LE::resolve() const {
 }
 void REQ::resolve() const { 
   // x = y
-  std::unordered_set<StrictRelations::Variable*> changed;
+  StrictRelations::VariableSet changed;
   // LT(x) U= LT(y)
     unionLT(left, right, changed);
   // LT(y) U= LT(x)
@@ -1642,7 +1645,7 @@ void REQ::resolve() const {
 
 void EQ::resolve() const { 
   // x = y
-  std::unordered_set<StrictRelations::Variable*> changed;
+  StrictRelations::VariableSet changed;
   // LT(x) U= LT(y)
     unionLT(left, right, changed);
   // GT(x) U= GT(y)
@@ -1656,13 +1659,13 @@ void EQ::resolve() const {
 
 void PHI::resolve() const { 
   // x = I( xi )
-  std::unordered_set<StrictRelations::Variable*> changed;
+  StrictRelations::VariableSet changed;
   // Growth checks
   bool gu = false, gd = false;
   for (auto i : operands) if (i->LT.count(left)) { gu = true; break; }
   for (auto i : operands) if (i->GT.count(left)) { gd = true; break; }
   
-  std::unordered_set<StrictRelations::Variable*> ULT, UGT;
+  StrictRelations::VariableSet ULT, UGT;
   
   // If it can only grow up
   if(gu and !gd) {

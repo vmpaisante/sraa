@@ -1,6 +1,7 @@
 #ifndef __StrictRelationsAliasAnalysis_H__
 #define __StrictRelationsAliasAnalysis_H__
 
+#include "llvm/ADT/SparseBitVector.h"
 #include "llvm/Analysis/AliasAnalysis.h"
 #include "llvm/Analysis/Passes.h"
 #include "llvm/Support/raw_ostream.h"
@@ -14,6 +15,7 @@
 #include <unordered_map>
 #include <map>
 #include <utility>
+#include <iterator> 
 
 typedef InterProceduralRA<Cousot> InterProceduralRACousot;
 
@@ -53,6 +55,37 @@ class Primitives {
 class WorkListEngine;
 class Constraint;
 
+void* global_variable_translator;
+
+template <class V> class BitVectorPositionTranslator {
+  std::unordered_map<V, int> v_to_i;
+  std::unordered_map<int, V> i_to_v;
+  unsigned next_i;
+  
+  public:
+  bool addValue(V v) {
+    if(!v_to_i.count(v)) {
+      v_to_i[v] = next_i;
+      i_to_v[next_i] = v;
+      ++next_i;
+      return true;
+    } else {
+      return false;
+    }
+  }
+  
+  unsigned getPosition(V v) {
+    if(!(v_to_i.count(v))) addValue(v);
+    return v_to_i[v];
+  }
+  
+  V getValue(unsigned i) {
+    if(i_to_v.count(i)) return i_to_v[i];
+    else return NULL;
+  }
+    
+};
+
 class StrictRelations : public ModulePass, public AliasAnalysis {
 
 public:
@@ -70,16 +103,96 @@ public:
     return this;
   }
   
+  struct Variable;
+  
+  class VariableSet {
+    friend class VariableSetIterator;
+    
+    BitVectorPositionTranslator<Variable*>* trans;
+    SparseBitVector<> set;
+    unsigned int size;
+    
+    class VariableSetIterator { 
+      SparseBitVector<>::iterator it;
+      VariableSet* owner;
+      public:
+      // Preincrement.
+      inline VariableSetIterator& operator++() {
+        ++it;
+        return *this;
+      }
+   
+      // Postincrement.
+      inline VariableSetIterator operator++(int) {
+        VariableSetIterator tmp = *this;
+        ++*this;
+        return tmp;
+      }
+   
+      // Return the current set bit number.
+      Variable* operator*() const {
+        return owner->trans->getValue(*it);
+      }
+   
+      bool operator==(const VariableSetIterator &RHS) const {
+        return it == RHS.it;
+      }
+   
+      bool operator!=(const VariableSetIterator &RHS) const {
+        return it != RHS.it;
+      }
+   
+      VariableSetIterator() {
+      }
+   
+      VariableSetIterator(SparseBitVector<>::iterator It, VariableSet* Owner){
+        it = It;
+        owner = Owner;
+      }
+    };
+    
+    public:
+    typedef VariableSetIterator iterator;
+    
+    void insert(Variable* v) {
+      trans->addValue(v);
+      set.set(trans->getPosition(v));
+    }
+    int count(Variable* v) {
+      trans->addValue(v);
+      if(set.test(trans->getPosition(v))) return 1;
+      else return 0; 
+    }
+    
+    iterator begin() {
+      return iterator(set.begin(), this);
+    }
+    
+    iterator end() {
+      return iterator(set.end(), this);
+    }
+    
+    void erase(Variable* v) {
+      trans->addValue(v);
+      set.reset(trans->getPosition(v));
+    }
+    
+    VariableSet() {
+      trans = (BitVectorPositionTranslator<Variable*>*) global_variable_translator;
+    }
+        
+  };
+  
   struct Variable {
     const Value* v;
-    std::unordered_set<Variable*> LT;
-    std::unordered_set<Variable*> GT;
+    VariableSet LT;
+    VariableSet GT;
     std::unordered_set<Constraint*> constraints;
     Variable(const Value* V) : v(V) { }
     
     void printStrictRelations(raw_ostream &OS);
   };
-  
+     
   //Forward declarations
   class DepEdge;
 
