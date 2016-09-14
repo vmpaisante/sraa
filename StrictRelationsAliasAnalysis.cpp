@@ -260,6 +260,14 @@ StrictRelations::alias(const MemoryLocation &LocA, const MemoryLocation &LocB) {
   p2 = LocB.Ptr;
   if(nodes[p1]->mustalias == nodes[p2]->mustalias) return MustAlias;
   
+  //Lazy worklist run
+  if(!variables.count(p1)) variables[p1] = new StrictRelations::Variable(p1);
+  if(!variables.count(p2)) variables[p2] = new StrictRelations::Variable(p2);
+  Variable* v1 = variables[p1];
+  Variable* v2 = variables[p2];
+  wle->solve(v1->constraints);
+  wle->solve(v2->constraints);
+  
   bool t1 = aliastest1(p1, p2);
   bool t2 = aliastest2(p1, p2);
   bool t3 = aliastest3(p1, p2);
@@ -415,8 +423,8 @@ bool StrictRelations::runOnModule(Module &M) {
   t = clock() - t;
   phase2 = ((float)t)/CLOCKS_PER_SEC;
   
-  DEBUG_WITH_TYPE("phases", errs() << "Running WorkList engine.\n");  
-  wle->solve();
+  /*DEBUG_WITH_TYPE("phases", errs() << "Running WorkList engine.\n");  
+  wle->solve();*/
   t = clock() - t;
   phase3 = ((float)t)/CLOCKS_PER_SEC;
   
@@ -1502,6 +1510,18 @@ void StrictRelations::DepNode::getPathToRoot() {
 
 void WorkListEngine::solve() {
   for(auto i : constraints) push(i.first);
+  
+  while(!worklist.empty()) {
+    const Constraint* c = worklist.front();
+    worklist.pop();
+    constraints[c] = false;
+    c->resolve();
+    NumResolve++;
+  }
+}
+
+void WorkListEngine::solve(std::unordered_set<Constraint*>& c) {
+  for(auto i : c) push(i);
   
   while(!worklist.empty()) {
     const Constraint* c = worklist.front();

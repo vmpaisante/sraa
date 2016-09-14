@@ -312,6 +312,7 @@ class Constraint;
 class WorkListEngine {
 public:
   void solve();
+  void solve(std::unordered_set<Constraint*>& c);
   void add(const Constraint*);
   void push(const Constraint*);
   void printConstraints(raw_ostream &OS);
