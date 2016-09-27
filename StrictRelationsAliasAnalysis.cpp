@@ -1602,8 +1602,8 @@ void LT::resolve() const {
   insertLT(right, left, changed);
 
   // GT(x) U= GT(y) U {y}
-  unionGT(right, left, changed);
-  insertGT(right, left, changed);
+  unionGT(left, right, changed);
+  insertGT(left, right, changed);
 
   // Adding back constraints from changed abstract values
   for(auto c : changed)
