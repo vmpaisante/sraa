@@ -180,7 +180,8 @@ public:
     VariableSet() {
       trans = (BitVectorPositionTranslator<Variable*>*) global_variable_translator;
     }
-        
+    
+    bool empty() {return set.empty();}
   };
   
   struct Variable {

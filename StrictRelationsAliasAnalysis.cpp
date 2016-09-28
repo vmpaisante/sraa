@@ -322,12 +322,14 @@ bool StrictRelations::aliastest2(const Value* p1, const Value* p2) {
     return true;
   }
   if(const GetElementPtrInst* gep1 = dyn_cast<GetElementPtrInst>(p1))
-    if(const GetElementPtrInst* gep2 = dyn_cast<GetElementPtrInst>(p2))
-      if(nodes[p1]->mustalias == nodes[p2]->mustalias) { 
+    if(const GetElementPtrInst* gep2 = dyn_cast<GetElementPtrInst>(p2)) {
+      if(nodes[gep1->getPointerOperand()]->mustalias == 
+                                  nodes[gep2->getPointerOperand()]->mustalias) { 
         t = clock() - t;
         test2 += ((float)t)/CLOCKS_PER_SEC;
         return disjointGEPs(gep1, gep2);
       }
+    }
   t = clock() - t;
   test2 += ((float)t)/CLOCKS_PER_SEC;
   return false;
@@ -407,7 +409,7 @@ bool StrictRelations::runOnModule(Module &M) {
   t = clock() - t;
   phase1 = ((float)t)/CLOCKS_PER_SEC;
   
-    DEBUG_WITH_TYPE("phases", errs() << "Building dependence graph.\n");  
+  DEBUG_WITH_TYPE("phases", errs() << "Building dependence graph.\n");  
   buildDepGraph(M);
   collectTypes();
   propagateTypes();
@@ -415,6 +417,7 @@ bool StrictRelations::runOnModule(Module &M) {
   t = clock() - t;
   phase2 = ((float)t)/CLOCKS_PER_SEC;
   
+  DEBUG_WITH_TYPE("worklist", wle->printConstraints(errs()));
   DEBUG_WITH_TYPE("phases", errs() << "Running WorkList engine.\n");  
   wle->solve();
   t = clock() - t;
@@ -1507,6 +1510,8 @@ void WorkListEngine::solve() {
     const Constraint* c = worklist.front();
     worklist.pop();
     constraints[c] = false;
+    DEBUG_WITH_TYPE("worklist", errs() << "=> ");
+    DEBUG_WITH_TYPE("worklist", c->print(errs()));
     c->resolve();
     NumResolve++;
   }
@@ -1606,10 +1611,11 @@ void LT::resolve() const {
   insertGT(left, right, changed);
 
   // Adding back constraints from changed abstract values
-  for(auto c : changed)
+  for(auto c : changed){
+    DEBUG_WITH_TYPE("worklist", c->printStrictRelations(errs()));
     for(auto i : c->constraints)
       if(i != this) engine->push(i);
-
+  }
 }  
 void LE::resolve() const { 
   // x <= y
@@ -1620,10 +1626,11 @@ void LE::resolve() const {
   // GT(x) U= GT(y)
     unionGT(left, right, changed);
   // Adding back constraints from changed abstract values
-  for(auto c : changed)
+  for(auto c : changed){
+    DEBUG_WITH_TYPE("worklist", c->printStrictRelations(errs()));
     for(auto i : c->constraints)
       if(i != this) engine->push(i);
-
+  }
 }
 void REQ::resolve() const { 
   // x = y
@@ -1637,10 +1644,11 @@ void REQ::resolve() const {
   // GT(y) U= GT(x)
     unionGT(right, left, changed);
   // Adding back constraints from changed abstract values
-  for(auto c : changed)
+  for(auto c : changed) {
+    DEBUG_WITH_TYPE("worklist", c->printStrictRelations(errs()));
     for(auto i : c->constraints)
       if(i != this) engine->push(i);
-  
+  }
 }
 
 void EQ::resolve() const { 
@@ -1651,9 +1659,11 @@ void EQ::resolve() const {
   // GT(x) U= GT(y)
     unionGT(left, right, changed);
   // Adding back constraints from changed abstract values
-  for(auto c : changed)
+  for(auto c : changed) {
+    DEBUG_WITH_TYPE("worklist", c->printStrictRelations(errs()));
     for(auto i : c->constraints)
       if(i != this) engine->push(i);
+  }
   
 }
 
@@ -1720,9 +1730,11 @@ void PHI::resolve() const {
     for(auto i : UGT) insertGT(left, i, changed);
   
   // Adding back constraints from changed abstract values
-  for(auto c : changed)
+  for(auto c : changed){
+    DEBUG_WITH_TYPE("worklist", c->printStrictRelations(errs()));
     for(auto i : c->constraints)
       if(i != this) engine->push(i);
+  }
 }
 
 void LT::print(raw_ostream &OS) const {
@@ -1767,4 +1779,24 @@ void PHI::print(raw_ostream &OS) const {
     OS << "; ";
   }
   OS << "\n";
+}
+
+void StrictRelations::Variable::printStrictRelations(raw_ostream &OS) {
+  if(v->getValueName() == NULL) OS << *(v);
+    else OS << v->getName();
+    OS << "\nLT: {";
+    if(LT.empty()) OS << "E";
+    for(auto j : LT) {
+      if(j->v->getValueName() == NULL) OS << *(j->v);
+      else OS << j->v->getName();
+      OS << "; ";
+    }
+    OS << "}\nGT: {";
+    if(GT.empty()) OS << "E";
+    for(auto j : GT) {
+      if(j->v->getValueName() == NULL) OS << *(j->v);
+      else OS << j->v->getName();
+      OS << "; ";
+    }
+    OS << "}\n";
 }
