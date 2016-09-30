@@ -1685,7 +1685,7 @@ void PHI::resolve() const {
     if(i != operands.end()) do {
       ULT = (*i)->LT;
       i++;
-    } while (!ULT.count(left) and i != operands.end());
+    } while (ULT.count(left) and i != operands.end());
     
     for (auto e = operands.end(); i != e; i++)
       if(!(*i)->LT.count(left)) ULT = intersect(ULT, (*i)->LT);
@@ -1708,7 +1708,7 @@ void PHI::resolve() const {
     if(i != operands.end()) do {
     UGT = (*i)->GT;
     i++;
-    } while (!UGT.count(left) and i != operands.end());
+    } while (UGT.count(left) and i != operands.end());
     
     for (auto e = operands.end(); i != e; i++)
       if(!(*i)->GT.count(left)) UGT = intersect(UGT, (*i)->GT);
