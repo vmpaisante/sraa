@@ -1,16 +1,16 @@
-##===- lib/Transforms/RangeAnalysis/Makefile ---------------*- Makefile -*-===##
-#
-#                     The LLVM Compiler Infrastructure
-#
-# This file is distributed under the University of Illinois Open Source
-# License. See LICENSE.TXT for details.
-#
+##======- Makefile --------------------------------------*- Makefile -*-======##
 ##===----------------------------------------------------------------------===##
-
-LEVEL = ../../..
+PROJECT_NAME = SRAA
 LIBRARYNAME = SRAA
 LOADABLE_MODULE = 1
 USEDLIBS =
-
-
-include $(LEVEL)/Makefile.common
+LEVEL = .
+LLVM_SRC_ROOT = /home/juniocezar/Applications/a-llvm37/llvm-3.7.1.src
+LLVM_OBJ_ROOT = /home/juniocezar/Applications/a-llvm37/llvm-3.7.1.src/build
+PROJ_SRC_ROOT = .
+PROJ_OBJ_ROOT = .
+PROJ_INSTALL_ROOT = /home/juniocezar/Applications/a-llvm37/llvm-3.7.1.src/build/Debug+Asserts/lib/..
+include $(LLVM_OBJ_ROOT)/Makefile.config
+include $(LLVM_SRC_ROOT)/Makefile.rules
+cp:
+	cp Debug+Asserts/lib/SRAA.so $(PROJ_INSTALL_ROOT)/lib -v

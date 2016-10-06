@@ -19,7 +19,7 @@
 #include "llvm/Support/Debug.h"
 #include "llvm/Support/raw_ostream.h"
 #include "llvm/PassAnalysisSupport.h"
-#include "../RangeAnalysis/RangeAnalysis.h"
+//#include "../RangeAnalysis/RangeAnalysis.h" // Line not required
 
 using namespace llvm;
 
@@ -422,6 +422,11 @@ bool StrictRelations::runOnModule(Module &M) {
   wle->solve();
   t = clock() - t;
   phase3 = ((float)t)/CLOCKS_PER_SEC;
+
+  //build LT graph
+  buildTGraph(getResult(), errs());
+  //generate dot file
+  toDot("LT",errs());
   
   DEBUG_WITH_TYPE("phases", errs() << "Finished.\n");
   phases = phase1 + phase2 + phase3;
@@ -507,6 +512,16 @@ void StrictRelations::collectConstraintsFromModule(Module &M) {
   for (Module::iterator m = M.begin(), me = M.end(); m != me; ++m) {
     for (Function::iterator b = m->begin(), be = m->end(); b != be; ++b) {
       for (BasicBlock::iterator I = b->begin(), ie = b->end(); I != ie; ++I) {
+
+        // Renaming variables. Including funcion from where var belongs.
+        // Only needed to make rendered graph easier to undestand
+        const void * instAddr = static_cast<const void*>(I);
+        std::stringstream stream;
+        stream << instAddr;
+        if(I->hasName()) I->setName(I->getName() + ".F(" + m->getName() + ")"); 
+        else if(isa<Constant>(I)) I->setName( Twine(stream.str()) + b->getName() + ".F(" + m->getName() + ")"); 
+        
+
         if(!variables.count(I)) variables[I] = new StrictRelations::Variable(I);
         // Addition
         if (isa<llvm::BinaryOperator>(&(*I))
@@ -1544,11 +1559,26 @@ void WorkListEngine::push(const Constraint* C) {
 ////////////////////////////////////////////////////////////////////////////////
 // Constraints definitions
 
+// SA(x) U= {y} && SA(y) U {x} // REM:
+void insertSA(StrictRelations::Variable* x,
+                               StrictRelations::Variable* y,
+                               StrictRelations::VariableSet &changed) {
+  if(!x->SA.count(y) and x != y) {
+    x->SA.insert(y);
+    changed.insert(x);
+    if(!y->SA.count(x)) {
+      y->SA.insert(x);
+      changed.insert(y);
+    }
+  }
+}
+
+
 // LT(x) U= {y}
 void insertLT(StrictRelations::Variable* x,
                                StrictRelations::Variable* y,
                                StrictRelations::VariableSet &changed) {
-  if(!x->LT.count(y) and x != y) {
+  if(!x->LT.count(y) and x != y and !x->SA.count(y)) { //Added check for SA set
     x->LT.insert(y);
     changed.insert(x);
     if(!y->GT.count(x)) {
@@ -1562,7 +1592,7 @@ void insertLT(StrictRelations::Variable* x,
 void insertGT(StrictRelations::Variable* x,
                                StrictRelations::Variable* y,
                                StrictRelations::VariableSet &changed) {
-  if(!x->GT.count(y) and x != y) {
+  if(!x->GT.count(y) and x != y and !x->SA.count(y)) { //Added check for SA set
     x->GT.insert(y);
     changed.insert(x);
     if(!y->LT.count(x)) {
@@ -1571,6 +1601,16 @@ void insertGT(StrictRelations::Variable* x,
     }
   }
 }
+
+// SA(x) U= SA(y) //REM:
+void unionSA(StrictRelations::Variable* x,
+                               StrictRelations::Variable* y,
+                               StrictRelations::VariableSet &changed) {
+  for(auto i : y->SA) {
+    insertSA(x, i, changed);
+  }
+}
+
 
 // LT(x) U= LT(y)
 void unionLT(StrictRelations::Variable* x,
@@ -1643,6 +1683,10 @@ void REQ::resolve() const {
     unionGT(left, right, changed);
   // GT(y) U= GT(x)
     unionGT(right, left, changed);
+    // SA(x) U= SA(y) and SA(y) U= SA(x) // REM:
+    unionSA(right, left, changed);
+    unionSA(left, right, changed);
+
   // Adding back constraints from changed abstract values
   for(auto c : changed) {
     DEBUG_WITH_TYPE("worklist", c->printStrictRelations(errs()));
@@ -1658,6 +1702,8 @@ void EQ::resolve() const {
     unionLT(left, right, changed);
   // GT(x) U= GT(y)
     unionGT(left, right, changed);
+  // SA(x) U= SA(y) // REM:
+    unionSA(left, right, changed);
   // Adding back constraints from changed abstract values
   for(auto c : changed) {
     DEBUG_WITH_TYPE("worklist", c->printStrictRelations(errs()));
@@ -1675,13 +1721,15 @@ void PHI::resolve() const {
   for (auto i : operands) if (i->LT.count(left)) { gu = true; break; }
   for (auto i : operands) if (i->GT.count(left)) { gd = true; break; }
   
-  StrictRelations::VariableSet ULT, UGT;
+  StrictRelations::VariableSet ULT, UGT, USA;
   
   // If it can only grow up
   if(gu and !gd) {
     // LT(x) U= I( LT(xj) ), where x !E LT(xj)
     // Intersection part
     auto i = operands.begin();
+    //Note: I think would be better to invert this do while to a
+    //while loop and insert the if condition to end() inside it
     if(i != operands.end()) do {
       ULT = (*i)->LT;
       i++;
@@ -1722,12 +1770,30 @@ void PHI::resolve() const {
       for (auto e = operands.end(); i != e; i++) UGT = intersect(UGT, (*i)->GT);
     }
   }
+
+  
+  // SA(x) U= I( SA(xi) )
+  auto i = operands.begin();
+  if(i != operands.end()) {
+    USA = (*i)->SA;
+    i++;
+    for (auto e = operands.end(); i != e; i++) 
+      USA = intersect(USA, (*i)->SA);
+  }
+
   // Remove left from ULT and UGT
   ULT.erase(left);
   UGT.erase(left);
+
+  // Remove vars from SA set of left from ULT and UGL
+  for (auto i : left->SA){
+    ULT.erase(i);
+    UGT.erase(i);
+  }
   // U= part
     for(auto i : ULT) insertLT(left, i, changed);
     for(auto i : UGT) insertGT(left, i, changed);
+    for(auto i : USA) insertSA(left, i, changed);
   
   // Adding back constraints from changed abstract values
   for(auto c : changed){
@@ -1800,3 +1866,276 @@ void StrictRelations::Variable::printStrictRelations(raw_ostream &OS) {
     }
     OS << "}\n";
 }
+
+
+
+
+/*
+
+ TNode Implementation
+
+*/
+
+ 
+StrictRelations::TNode::TNode(StrictRelations::Variable* obj) {
+  variable = obj;
+}
+
+ 
+StrictRelations::TNode::~TNode() {
+  for (std::unordered_set<TNode*>::iterator pred = greaterThanSet.begin(); pred
+          != greaterThanSet.end(); pred++) {
+    (*pred)->lessThanSet.erase(this);
+  }
+  for (std::unordered_set<TNode*>::iterator succ = lessThanSet.begin(); succ
+          != lessThanSet.end(); succ++) {
+    (*succ)->greaterThanSet.erase(this);
+  }
+  lessThanSet.clear();
+  greaterThanSet.clear();
+}
+
+ 
+std::unordered_set<StrictRelations::TNode*> StrictRelations::TNode::getSetLT() {
+  return lessThanSet;
+}
+ 
+std::unordered_set<StrictRelations::TNode*> StrictRelations::TNode::getSetGT() {
+  return greaterThanSet;
+}
+
+/* obj this is less than dst
+the lessThanSet store all variables less than me
+this will be included in the lessThanSet of dst
+*/
+void StrictRelations::TNode::addEdgeTo(StrictRelations::TNode* dst) { 
+  dst->lessThanSet.insert(this);
+  this->greaterThanSet.insert(dst);
+}
+ 
+bool StrictRelations::TNode::hasLT(StrictRelations::TNode* succ) {
+  return lessThanSet.count(succ) > 0;
+}
+ 
+bool StrictRelations::TNode::hasGT(StrictRelations::TNode* pred) {
+        return greaterThanSet.count(pred) > 0;
+}
+
+
+
+
+StrictRelations::TNode* StrictRelations::addNode(StrictRelations::Variable* variable) {
+  TNode* node = findNode(tNodesMap, variable);
+  if (!node) {
+    node = new TNode(variable);
+    tNodes.insert(node);
+    //nodeMap[variable] = node;
+    tNodesMap[variable->v] = node;
+  }
+  return node;
+}
+
+
+
+//Return the pointer to the node related to the element.
+//Return NULL if the element is not inside the map.
+
+StrictRelations::TNode* StrictRelations::findNode( std::unordered_map<const Value*,
+                          TNode*> tNodesMap, StrictRelations::Variable* element) {
+  if (tNodesMap.count(element->v))
+    return tNodesMap[element->v];
+
+  return NULL;
+}
+
+
+StrictRelations::TNode* StrictRelations::findNode(std::set<TNode*> tNodes, 
+                                          StrictRelations::TNode* node) {
+    if (tNodes.count(node))
+      return node;
+
+    return NULL;
+}
+
+
+void StrictRelations::buildTGraph(std::unordered_map<const Value*, 
+                    StrictRelations::Variable*> variables, raw_ostream &OS){
+  for(auto i : variables) {
+    TNode* to = addNode(i.second);
+    for(auto j : i.second->LT) {
+      if(i.second->GT.count(j))
+        OS << "\n=== LOOP:" << to->getName() << " - " << j->v->getName() << "\n"; 
+      TNode* from = addNode(j);
+      from->addEdgeTo(to);
+    }
+  }
+}
+
+
+
+void StrictRelations::toDot(std::string outName, raw_ostream &OS){
+ // unsigned int numVertices = 2;
+  //unsigned int numEdgesLT = 0;
+ // unsigned int numEdgesGT = 0;
+  //bool unused = false;
+  std::map<const Value*, int> constantName;
+  std::string name, name2;
+  int cId = 0;
+  dotFile* dot = new dotFile(outName);
+
+
+  for (std::set<TNode*>::iterator node = tNodes.begin(), end = tNodes.end(); node
+                        != end; node++) {   
+    const Value *val = (*node)->getValue();    
+
+    if(val->getValueName() == NULL){ // OS << "\n\n====>>>" << *(i.first) << "<<======\n";
+      if(isa<Instruction>(val)) { 
+        const Instruction* tst = dyn_cast<Instruction>(val);
+        name = dot->recreateName(tst);      
+                //OS << "INST(" << *(i.first) << ") OPCODE(" << tst->getOpcodeName()  << ") \n ";
+      }else{
+        if(constantName.count(val)){
+          name = "Instruction ID: (";
+          name += std::to_string(constantName[val]);
+          name += ") ";
+        }else{
+          cId++;
+          constantName[val] = cId;
+          name = "Instruction ID: (";
+          name += std::to_string(cId);
+          name += ") ";
+        }
+      }
+      /*}else if(const ConstantInt* CI = dyn_cast<ConstantInt>(val)){
+        name = "ConstInt: " + CI->getValue().toString(10, true); //"CONSTANT";  
+      }else if(const Constant* C = dyn_cast<Constant>(val)){    
+        name = "Const: " + C->getName().str();
+      }else{
+                //OS << "VALUE(" << *(i.first) << ")\n";
+        name = "OTHER";
+      }*/
+      dot->insertLine(name);
+    }else{
+      name = val->getName().str();
+      dot->insertLine(name);
+    }
+
+
+    std::unordered_set<TNode*> SET = (*node)->getSetGT();
+    for (std::unordered_set<TNode*>::iterator node2 = SET.begin(), end2 = SET.end(); node2
+                        != end2; node2++) {
+      const Value *valTo = (*node2)->getValue();
+      //OS << (*node2)->getName() << " - ";
+      if(valTo->getValueName() == NULL){
+        if(isa<Instruction>(valTo)) { 
+          const Instruction* tst2 = dyn_cast<Instruction>(valTo);
+          name2 = dot->recreateName(tst2);
+             //OS << "INST(" << *(i.first) << ") OPCODE(" << tst->getOpcodeName()  << ") \n ";
+        }else{
+          if(constantName.count(val)){
+            name2 = "Instruction ID: (";
+            name2 += std::to_string(constantName[valTo]);
+            name2 += ") ";
+          }else{
+            cId++;
+            constantName[valTo] = cId;
+            name2 = "Instruction ID: (";
+            name2 += std::to_string(cId);
+            name2 += ") ";
+          }
+        }
+        /*}else if(const ConstantInt* CI = dyn_cast<ConstantInt>(valTo) ){
+          name2 = "ConstInt: " + CI->getValue().toString(10, true); //"CONSTANT";      
+        }else if(const Constant* C = dyn_cast<Constant>(valTo)){    
+          name = "Const: " + C->getName().str();
+        }else{
+          //OS << "VALUE(" << *(j->v) << ")\n";
+          name2 = "OTHER";
+        }*/
+        dot->insertEdge(name2, name); // OS << "\n\n====>>>" << *(j->v) << "<<======\n";
+      }else{
+        name2 = valTo->getName().str();
+        dot->insertEdge(name,name2); //i.first->getName().str()
+      }
+    }
+  }
+  dot->toFile();
+} 
+
+
+/*
+dot file class implementation
+
+*/
+
+// Instantiates the object and initializes the function name, 
+// the dot file name and the first variable ID
+dotFile::dotFile(std::string name){
+  FunctionName = name;
+  dotName = "cfg." + name + ".dot";
+  dot << "digraph \"Transitive Closure\" {";
+}
+
+// Adds a std::string to the dot
+void dotFile::insertLine(std::string str){
+  dot << "\n\t\"" << str << "\" [shape=record, \n\t\tlabel=\"{" << str << ":\\l\\l\\l}\"]; ";
+}
+
+void dotFile::insertEdge(std::string str, std::string strX){
+  dot << "\n\t\"" << str << "\" -> \"" << strX << "\";";
+}
+
+// Creates a dot file, writes the dot commands inside it and closes the file
+void dotFile::toFile(){
+  std::ofstream file;
+  file.open(dotName.c_str());
+  file << dot.str() + "\n}";
+  file.close();
+}
+
+std::string dotFile::requireName(const Value *value){
+ 
+  // Checks whether it is a constant value
+  if ( isa<Constant> (value) ) {
+  // Try to cast the value to an integer
+    if ( const ConstantInt* number = dyn_cast<ConstantInt>(value))
+      // Returns a string version of the integer value
+      return (number->getValue().toString(10, true));
+
+    if ( const ConstantFP* number = dyn_cast<ConstantFP>(value))
+      // Returns a string version of a floating point value
+      return number->getName().str();
+
+    // Returns a string version of a global variable, expr, ConstantVector ...
+    return (isa<GlobalValue>(value) ? "@" : "" ) + value->getName().str();
+  } else {
+  // Writes the value name if it is not a constant and already has a name
+    std::string visibility = (! isa<GlobalValue>(value) ? "%" : "@" );
+    if(value->hasName())
+      return visibility + value->getName().str();
+
+    // Adds a name (variable ID) to the value and write it
+    //value->setName(Twine("ID")); ////getVarID()
+    return visibility + value->getName().str();
+  }
+}
+
+std::string dotFile::recreateName(const Instruction* i){
+  
+  unsigned nOp = i->getNumOperands();
+  std::string name = std::string(i->getOpcodeName()) + " ";
+  
+  for(unsigned cont = 0; cont < nOp; cont++){ 
+    if(cont>0)
+      name += ", ";
+    name += requireName(i->getOperand(cont));
+  }
+  return name;
+}
+
+
+void dotFile::addEdge(std::string from, std::string to){
+  this->insertEdge(from,to);
+}
+
+

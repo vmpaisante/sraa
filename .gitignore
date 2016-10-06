@@ -36,6 +36,7 @@
 
 # Compilation
 Release+Asserts/
+Debug+Asserts/
 
 # All files ending with ~
 *~
