@@ -17,6 +17,9 @@
 #include <utility>
 #include <iterator> 
 
+#include <sstream>
+#include <fstream>  
+
 typedef InterProceduralRA<Cousot> InterProceduralRACousot;
 
 namespace {
@@ -188,8 +191,10 @@ public:
     const Value* v;
     VariableSet LT;
     VariableSet GT;
+    VariableSet SA; 
     std::unordered_set<Constraint*> constraints;
-    Variable(const Value* V) : v(V) { }
+    //Constructor inserts the variable in its SA set
+    Variable(const Value* V) : v(V) { SA.insert(this); } 
     
     void printStrictRelations(raw_ostream &OS);
   };
@@ -260,11 +265,20 @@ public:
     else return NULL;
   }
   void printAllStrictRelations(raw_ostream &OS);
+
+  // Return variables with LT, GT, SA sets filled
+  std::unordered_map<const Value*, Variable*> getResult(){ 
+    return variables;
+  }
+
+  class TNode; //Forward declaration
  
 
   InterProceduralRACousot *RA;
   std::unordered_map<const Value*, Variable*> variables;
   std::unordered_map<const Value*, DepNode*> nodes;
+  std::unordered_map<const Value*, TNode*> tNodesMap;
+  std::set<TNode*> tNodes;
   WorkListEngine* wle;
             
   void getAnalysisUsage(AnalysisUsage &AU) const override;
@@ -293,6 +307,16 @@ private:
   void propagateGlobals(std::set<DepNode*> &globals);
   void propagateUnks(std::set<DepNode*> &unks);
   void propagateAlloca(DepNode*);
+
+
+  // TGraph
+  void buildTGraph(std::unordered_map<const Value*, 
+                      StrictRelations::Variable*> variables, raw_ostream &OS); 
+  TNode* addNode(StrictRelations::Variable* element); 
+  TNode* findNode( std::unordered_map<const Value*, TNode*> tNodesMap, 
+                      StrictRelations::Variable* element); 
+  TNode* findNode(std::set<TNode*> tNodes, TNode* node); 
+  void toDot(std::string name, raw_ostream &OS);
 
   //Times
   float phase1;
@@ -386,6 +410,54 @@ public:
 };
 
 ////////////////////////////////////////////////////////////////////////////////
+
+class StrictRelations::TNode {
+private:
+  std::unordered_set<TNode*> lessThanSet;
+  std::unordered_set<TNode*> greaterThanSet;
+  StrictRelations::Variable* variable;
+public:
+  TNode(StrictRelations::Variable*);
+  ~TNode();
+  
+  StringRef getName(){
+    return (variable->v->hasName()? variable->v->getName() : "");
+  }
+
+  const Value* getValue(){
+    return variable->v;
+  }
+
+  std::unordered_set<TNode*> getSetLT();
+  bool hasLT(TNode* succ);
+  std::unordered_set<TNode*> getSetGT();
+  bool hasGT(TNode* pred);
+  void addEdgeTo(TNode *dst);
+  void cloneSet(TNode* from, raw_ostream &OS);
+  void clonePSet(TNode* from, raw_ostream &OS);
+  void intersection(std::unordered_set<StrictRelations::Variable*> phiNode,raw_ostream &OS);
+
+};
+
+////////////////////////////////////////////////////////////////////////////////
+// DotFile class declaration --> Export graph as a .dot file
+
+class dotFile {
+private:
+  std::stringstream dot;
+  std::string FunctionName;
+  std::string dotName;
+public:
+  dotFile(std::string);
+  void insertLine(std::string);
+  void insertEdge(std::string, std::string);
+  void toFile();
+  void addVertex(const Value*);
+  void addEdge(std::string, std::string);
+  std::string requireName(const Value *);
+  std::string recreateName(const Instruction*);
+
+};
 
 }
 
