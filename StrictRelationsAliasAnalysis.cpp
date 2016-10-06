@@ -1034,6 +1034,11 @@ void StrictRelations::collectConstraintsFromModule(Module &M) {
       }
     }
   }
+  
+  // Map that holds the comparisons anf sigmas
+  // cmp -> leftside<truesigma, falsesigma> , rightside<truesigma, falsesigma>
+  // std::map<const CmpInst*, std::pair< std::pair<const Value*, const Value*>,
+  //                           std::pair<const Value*, const Value*> > > sigmas;
 
   // Transforming the sigmas map into constraints
   for (auto i : sigmas) {
@@ -1042,11 +1047,11 @@ void StrictRelations::collectConstraintsFromModule(Module &M) {
     // if one of the sigma pairs is missing
     if(i.second.first.first == NULL and i.second.second.first != NULL)
       i.second.first.first = i.first->getOperand(0);
-    else if (i.second.first.second == NULL and i.second.second.second != NULL)
+    if (i.second.first.second == NULL and i.second.second.second != NULL)
       i.second.first.second = i.first->getOperand(0);
-    else if (i.second.second.first == NULL and i.second.first.first != NULL)
+    if (i.second.second.first == NULL and i.second.first.first != NULL)
       i.second.second.first = i.first->getOperand(1);
-    else if (i.second.second.second == NULL and i.second.first.second != NULL)
+    if (i.second.second.second == NULL and i.second.first.second != NULL)
       i.second.second.second = i.first->getOperand(1);
     
     Constraint* c;
