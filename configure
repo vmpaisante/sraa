@@ -1,0 +1,47 @@
+#!/usr/bin/env bash
+
+# LLVM_CONFIG can be defined to choose which LLVM installtion to use.
+[ -n "$LLVM_CONFIG" ] || LLVM_CONFIG="llvm-config"
+
+command -v "$LLVM_CONFIG" >/dev/null 2>&1 \
+    || { echo >&2 "ERROR: llvm-config not found. Aborting"; exit 1; }
+
+[ -n "$LLVM_SRC_DIR" ] || LLVM_SRC_DIR="$($LLVM_CONFIG --src-root)"
+[ -n "$LLVM_OBJ_DIR" ] || LLVM_OBJ_DIR="$($LLVM_CONFIG --obj-root)"
+[ -n "$PROJ_INSTALL_ROOT" ] || PROJ_INSTALL_ROOT="$($LLVM_CONFIG --libdir)/.."
+
+MAKEFILE_BODY=$(cat <<EOF
+##======- Makefile --------------------------------------*- Makefile -*-======##
+##===----------------------------------------------------------------------===##
+PROJECT_NAME = SRAA
+LIBRARYNAME = SRAA
+LOADABLE_MODULE = 1
+USEDLIBS =
+LEVEL = .
+LLVM_SRC_ROOT = $LLVM_SRC_DIR
+LLVM_OBJ_ROOT = $LLVM_OBJ_DIR
+PROJ_SRC_ROOT = .
+PROJ_OBJ_ROOT = .
+PROJ_INSTALL_ROOT = $PROJ_INSTALL_ROOT
+include \\\$(LLVM_OBJ_ROOT)/Makefile.config
+include \\\$(LLVM_SRC_ROOT)/Makefile.rules
+cp:
+	cp Debug+Asserts/lib/SRAA.so \\\$(PROJ_INSTALL_ROOT)/lib -v
+EOF
+)
+
+cat <<OEOF > config.status
+#!/bin/bash
+echo "Using $LLVM_SRC_DIR as LLVM source directory"
+echo "Using $LLVM_OBJ_DIR as LLVM object directory"
+echo "Using $PROJ_INSTALL_ROOT as installation root"
+cat <<EOF > Makefile
+$MAKEFILE_BODY
+EOF
+echo "Generated Makefile"
+OEOF
+
+chmod +x config.status
+echo "Generated config.status"
+echo "Executing config.status"
+./config.status

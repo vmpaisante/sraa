@@ -7,7 +7,8 @@
 #include "llvm/Support/raw_ostream.h"
 #include "llvm/Pass.h"
 
-#include "../RangeAnalysis/RangeAnalysis.h"
+//#include "../RangeAnalysis/RangeAnalysis.h"
+#include "include/RangeAnalysis/RangeAnalysis.h"
 
 #include <queue>
 #include <set>
@@ -362,10 +363,31 @@ public:
 
 ////////////////////////////////////////////////////////////////////////////////
 // Constraint types declaration
-class LT : public Constraint {
+class RLT : public Constraint {
   StrictRelations::Variable * const left, * const right;
 public:
+  RLT(WorkListEngine* W, StrictRelations::Variable* L,
+          StrictRelations::Variable* R) : left(L), right(R) { engine = W; };
+  void resolve() const override;
+  void print(raw_ostream &OS) const override;
+};
+
+class LT : public Constraint {
+  StrictRelations::Variable * const left, * const right;
+  bool isLeftNull;
+  bool isRightNull;
+public:
   LT(WorkListEngine* W, StrictRelations::Variable* L,
+          StrictRelations::Variable* R, bool lSide, bool rSide) : left(L)
+              , right(R) { engine = W; isLeftNull = lSide; isRightNull = rSide; };
+  void resolve() const override;
+  void print(raw_ostream &OS) const override;
+};
+
+class RLE : public Constraint {
+  StrictRelations::Variable * const left, * const right;
+public:
+  RLE(WorkListEngine* W, StrictRelations::Variable* L,
           StrictRelations::Variable* R) : left(L), right(R) { engine = W; };
   void resolve() const override;
   void print(raw_ostream &OS) const override;
@@ -373,9 +395,12 @@ public:
 
 class LE : public Constraint {
   StrictRelations::Variable * const left, * const right;
+  bool isLeftNull;
+  bool isRightNull;
 public:
   LE(WorkListEngine* W, StrictRelations::Variable* L,
-          StrictRelations::Variable* R) : left(L), right(R) { engine = W; };
+          StrictRelations::Variable* R, bool lSide, bool rSide) : left(L)
+            , right(R) { engine = W;  isLeftNull = lSide; isRightNull = rSide; };
   void resolve() const override;
   void print(raw_ostream &OS) const override;
 };

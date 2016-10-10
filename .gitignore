@@ -40,3 +40,8 @@ Debug+Asserts/
 
 # All files ending with ~
 *~
+
+
+# Directories
+include/*
+include/

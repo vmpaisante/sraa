@@ -426,7 +426,9 @@ bool StrictRelations::runOnModule(Module &M) {
   //build LT graph
   buildTGraph(getResult(), errs());
   //generate dot file
-  toDot("LT",errs());
+  //toDot("LT",errs());
+
+
   
   DEBUG_WITH_TYPE("phases", errs() << "Finished.\n");
   phases = phase1 + phase2 + phase3;
@@ -546,7 +548,7 @@ void StrictRelations::collectConstraintsFromModule(Module &M) {
             // Case x > 0 then y < a
             if(!variables.count(op2)) variables[op2] =
                                           new StrictRelations::Variable(op2);
-            Constraint* c = new LT(wle, variables[op2], variables[I]);
+            Constraint* c = new RLT(wle, variables[op2], variables[I]);
             NumConstraints++;
             variables[I]->constraints.insert(c);
             variables[op2]->constraints.insert(c);
@@ -556,7 +558,7 @@ void StrictRelations::collectConstraintsFromModule(Module &M) {
             // Case x >= 0 then y <= a
             if(!variables.count(op2)) variables[op2] =
                                           new StrictRelations::Variable(op2);
-            Constraint* c = new LE(wle, variables[op2], variables[I]);
+            Constraint* c = new RLE(wle, variables[op2], variables[I]);
             NumConstraints++;
             variables[I]->constraints.insert(c);
             variables[op2]->constraints.insert(c);
@@ -566,7 +568,7 @@ void StrictRelations::collectConstraintsFromModule(Module &M) {
             // Case x < 0 then a < y
             if(!variables.count(op2)) variables[op2] =
                                           new StrictRelations::Variable(op2);
-            Constraint* c = new LT(wle, variables[I], variables[op2]);
+            Constraint* c = new RLT(wle, variables[I], variables[op2]);
             NumConstraints++;
             variables[I]->constraints.insert(c);
             variables[op2]->constraints.insert(c);
@@ -576,7 +578,7 @@ void StrictRelations::collectConstraintsFromModule(Module &M) {
             // Case x <= 0 then a <= y
             if(!variables.count(op2)) variables[op2] =
                                           new StrictRelations::Variable(op2);
-            Constraint* c = new LE(wle, variables[I], variables[op2]);
+            Constraint* c = new RLE(wle, variables[I], variables[op2]);
             NumConstraints++;
             variables[I]->constraints.insert(c);
             variables[op2]->constraints.insert(c);
@@ -598,7 +600,7 @@ void StrictRelations::collectConstraintsFromModule(Module &M) {
             // Case y > 0 then x < a
             if(!variables.count(op1)) variables[op1] =
                                           new StrictRelations::Variable(op1);
-            Constraint* c = new LT(wle, variables[op1], variables[I]);
+            Constraint* c = new RLT(wle, variables[op1], variables[I]);
             NumConstraints++;
             variables[I]->constraints.insert(c);
             variables[op1]->constraints.insert(c);
@@ -608,7 +610,7 @@ void StrictRelations::collectConstraintsFromModule(Module &M) {
             // Case y >= 0 then x <= a
             if(!variables.count(op1)) variables[op1] =
                                           new StrictRelations::Variable(op1);
-            Constraint* c = new LE(wle, variables[op1], variables[I]);
+            Constraint* c = new RLE(wle, variables[op1], variables[I]);
             NumConstraints++;
             variables[I]->constraints.insert(c);
             variables[op1]->constraints.insert(c);
@@ -618,7 +620,7 @@ void StrictRelations::collectConstraintsFromModule(Module &M) {
             // Case y < 0 then a < x
             if(!variables.count(op1)) variables[op1] =
                                           new StrictRelations::Variable(op1);
-            Constraint* c = new LT(wle, variables[I], variables[op1]);
+            Constraint* c = new RLT(wle, variables[I], variables[op1]);
             NumConstraints++;
             variables[I]->constraints.insert(c);
             variables[op1]->constraints.insert(c);
@@ -628,7 +630,7 @@ void StrictRelations::collectConstraintsFromModule(Module &M) {
             // Case y <= 0 then a <= x
             if(!variables.count(op1)) variables[op1] =
                                           new StrictRelations::Variable(op1);
-            Constraint* c = new LE(wle, variables[I], variables[op1]);
+            Constraint* c = new RLE(wle, variables[I], variables[op1]);
             NumConstraints++;
             variables[I]->constraints.insert(c);
             variables[op1]->constraints.insert(c);
@@ -661,7 +663,7 @@ void StrictRelations::collectConstraintsFromModule(Module &M) {
               // Case y > 0 then a < y
               if(!variables.count(op2)) variables[op2] =
                                           new StrictRelations::Variable(op2);
-              Constraint* c = new LT(wle, variables[I], variables[op2]);
+              Constraint* c = new RLT(wle, variables[I], variables[op2]);
               NumConstraints++;
               variables[I]->constraints.insert(c);
               variables[op2]->constraints.insert(c);
@@ -671,7 +673,7 @@ void StrictRelations::collectConstraintsFromModule(Module &M) {
               // Case y >= 0 then a <= y
               if(!variables.count(op2)) variables[op2] =
                                           new StrictRelations::Variable(op2);
-              Constraint* c = new LE(wle, variables[I], variables[op2]);
+              Constraint* c = new RLE(wle, variables[I], variables[op2]);
               NumConstraints++;
               variables[I]->constraints.insert(c);
               variables[op2]->constraints.insert(c);
@@ -681,7 +683,7 @@ void StrictRelations::collectConstraintsFromModule(Module &M) {
               // Case y < 0 then y < a
               if(!variables.count(op2)) variables[op2] =
                                           new StrictRelations::Variable(op2);
-              Constraint* c = new LT(wle, variables[op2], variables[I]);
+              Constraint* c = new RLT(wle, variables[op2], variables[I]);
               NumConstraints++;
               variables[I]->constraints.insert(c);
               variables[op2]->constraints.insert(c);
@@ -691,7 +693,7 @@ void StrictRelations::collectConstraintsFromModule(Module &M) {
               // Case y <= 0 then y <= a
               if(!variables.count(op2)) variables[op2] =
                                           new StrictRelations::Variable(op2);
-              Constraint* c = new LE(wle, variables[op2], variables[I]);
+              Constraint* c = new RLE(wle, variables[op2], variables[I]);
               NumConstraints++;
               variables[I]->constraints.insert(c);
               variables[op2]->constraints.insert(c);
@@ -704,7 +706,7 @@ void StrictRelations::collectConstraintsFromModule(Module &M) {
               // Case a = (>0) - 0 then y < a
               if(!variables.count(op2)) variables[op2] =
                                           new StrictRelations::Variable(op2);
-              Constraint* c = new LT(wle, variables[op2], variables[I]);
+              Constraint* c = new RLT(wle, variables[op2], variables[I]);
               NumConstraints++;
               variables[I]->constraints.insert(c);
               variables[op2]->constraints.insert(c);
@@ -720,7 +722,7 @@ void StrictRelations::collectConstraintsFromModule(Module &M) {
               // Case y < 0, a = (>0) - (<0) then y < a
               if(!variables.count(op2)) variables[op2] =
                                           new StrictRelations::Variable(op2);
-              Constraint* c = new LT(wle, variables[op2], variables[I]);
+              Constraint* c = new RLT(wle, variables[op2], variables[I]);
               NumConstraints++;
               variables[I]->constraints.insert(c);
               variables[op2]->constraints.insert(c);
@@ -730,7 +732,7 @@ void StrictRelations::collectConstraintsFromModule(Module &M) {
               // Case y <= 0, a = (>0) - (<=0) then y < a 
               if(!variables.count(op2)) variables[op2] =
                                           new StrictRelations::Variable(op2);
-              Constraint* c = new LT(wle, variables[op2], variables[I]);
+              Constraint* c = new RLT(wle, variables[op2], variables[I]);
               NumConstraints++;
               variables[I]->constraints.insert(c);
               variables[op2]->constraints.insert(c);
@@ -743,7 +745,7 @@ void StrictRelations::collectConstraintsFromModule(Module &M) {
               // Case a = (>=0) - 0 then y <= a
               if(!variables.count(op2)) variables[op2] =
                                           new StrictRelations::Variable(op2);
-              Constraint* c = new LE(wle, variables[op2], variables[I]);
+              Constraint* c = new RLE(wle, variables[op2], variables[I]);
               NumConstraints++;
               variables[I]->constraints.insert(c);
               variables[op2]->constraints.insert(c);
@@ -759,7 +761,7 @@ void StrictRelations::collectConstraintsFromModule(Module &M) {
               // Case y < 0, a = (>=0) - (<0) then y < a
               if(!variables.count(op2)) variables[op2] =
                                           new StrictRelations::Variable(op2);
-              Constraint* c = new LT(wle, variables[op2], variables[I]);
+              Constraint* c = new RLT(wle, variables[op2], variables[I]);
               NumConstraints++;
               variables[I]->constraints.insert(c);
               variables[op2]->constraints.insert(c);
@@ -769,7 +771,7 @@ void StrictRelations::collectConstraintsFromModule(Module &M) {
               // Case y <= 0, a = (>=0) - (<=0) then y <= a 
               if(!variables.count(op2)) variables[op2] =
                                           new StrictRelations::Variable(op2);
-              Constraint* c = new LE(wle, variables[op2], variables[I]);
+              Constraint* c = new RLE(wle, variables[op2], variables[I]);
               NumConstraints++;
               variables[I]->constraints.insert(c);
               variables[op2]->constraints.insert(c);
@@ -782,7 +784,7 @@ void StrictRelations::collectConstraintsFromModule(Module &M) {
               // Case a = (<0) - 0 then a < y 
               if(!variables.count(op2)) variables[op2] =
                                           new StrictRelations::Variable(op2);
-              Constraint* c = new LT(wle, variables[I], variables[op2]);
+              Constraint* c = new RLT(wle, variables[I], variables[op2]);
               NumConstraints++;
               variables[I]->constraints.insert(c);
               variables[op2]->constraints.insert(c);
@@ -792,7 +794,7 @@ void StrictRelations::collectConstraintsFromModule(Module &M) {
               // Case y > 0, a = (<0) - (>0) then  a < y
               if(!variables.count(op2)) variables[op2] =
                                           new StrictRelations::Variable(op2);
-              Constraint* c = new LT(wle, variables[I], variables[op2]);
+              Constraint* c = new RLT(wle, variables[I], variables[op2]);
               NumConstraints++;
               variables[I]->constraints.insert(c);
               variables[op2]->constraints.insert(c);
@@ -802,7 +804,7 @@ void StrictRelations::collectConstraintsFromModule(Module &M) {
               // Case y >= 0, a = (<0) - (>=0)  then a < y
               if(!variables.count(op2)) variables[op2] =
                                           new StrictRelations::Variable(op2);
-              Constraint* c = new LT(wle, variables[I], variables[op2]);
+              Constraint* c = new RLT(wle, variables[I], variables[op2]);
               NumConstraints++;
               variables[I]->constraints.insert(c);
               variables[op2]->constraints.insert(c);
@@ -821,7 +823,7 @@ void StrictRelations::collectConstraintsFromModule(Module &M) {
               // Case a = (<=0) - 0 then a <= y 
               if(!variables.count(op2)) variables[op2] =
                                           new StrictRelations::Variable(op2);
-              Constraint* c = new LE(wle, variables[I], variables[op2]);
+              Constraint* c = new RLE(wle, variables[I], variables[op2]);
               NumConstraints++;
               variables[I]->constraints.insert(c);
               variables[op2]->constraints.insert(c);
@@ -831,7 +833,7 @@ void StrictRelations::collectConstraintsFromModule(Module &M) {
               // Case y > 0, a = (<=0) - (>0) then  a < y
               if(!variables.count(op2)) variables[op2] =
                                           new StrictRelations::Variable(op2);
-              Constraint* c = new LT(wle, variables[I], variables[op2]);
+              Constraint* c = new RLT(wle, variables[I], variables[op2]);
               NumConstraints++;
               variables[I]->constraints.insert(c);
               variables[op2]->constraints.insert(c);
@@ -841,7 +843,7 @@ void StrictRelations::collectConstraintsFromModule(Module &M) {
               // Case y >= 0, a = (<=0) - (>=0)  then a <= y
               if(!variables.count(op2)) variables[op2] =
                                           new StrictRelations::Variable(op2);
-              Constraint* c = new LE(wle, variables[I], variables[op2]);
+              Constraint* c = new RLE(wle, variables[I], variables[op2]);
               NumConstraints++;
               variables[I]->constraints.insert(c);
               variables[op2]->constraints.insert(c);
@@ -871,7 +873,7 @@ void StrictRelations::collectConstraintsFromModule(Module &M) {
             // Case y > 0 then a < x
               if(!variables.count(op1)) variables[op1] =
                                           new StrictRelations::Variable(op1);
-            Constraint* c = new LT(wle, variables[I], variables[op1]);
+            Constraint* c = new RLT(wle, variables[I], variables[op1]);
             NumConstraints++;
             variables[I]->constraints.insert(c);
             variables[op1]->constraints.insert(c);
@@ -881,7 +883,7 @@ void StrictRelations::collectConstraintsFromModule(Module &M) {
             // Case y >= 0 then a <= x
               if(!variables.count(op1)) variables[op1] =
                                           new StrictRelations::Variable(op1);
-            Constraint* c = new LE(wle, variables[I], variables[op1]);
+            Constraint* c = new RLE(wle, variables[I], variables[op1]);
             NumConstraints++;
             variables[I]->constraints.insert(c);
             variables[op1]->constraints.insert(c);
@@ -891,7 +893,7 @@ void StrictRelations::collectConstraintsFromModule(Module &M) {
             // Case y < 0 then x < a
               if(!variables.count(op1)) variables[op1] =
                                           new StrictRelations::Variable(op1);
-            Constraint* c = new LT(wle, variables[op1], variables[I]);
+            Constraint* c = new RLT(wle, variables[op1], variables[I]);
             NumConstraints++;
             variables[I]->constraints.insert(c);
             variables[op1]->constraints.insert(c);
@@ -901,7 +903,7 @@ void StrictRelations::collectConstraintsFromModule(Module &M) {
             // Case y <= 0 then x <= a
               if(!variables.count(op1)) variables[op1] =
                                           new StrictRelations::Variable(op1);
-            Constraint* c = new LE(wle, variables[op1], variables[I]);
+            Constraint* c = new RLE(wle, variables[op1], variables[I]);
             NumConstraints++;
             variables[I]->constraints.insert(c);
             variables[op1]->constraints.insert(c);
@@ -928,7 +930,7 @@ void StrictRelations::collectConstraintsFromModule(Module &M) {
             // Case p = b + (>0) then b < p
             if(!variables.count(base)) variables[base] =
                                         new StrictRelations::Variable(base);
-            Constraint* c = new LT(wle, variables[base], variables[I]);
+            Constraint* c = new RLT(wle, variables[base], variables[I]);
             NumConstraints++;
             variables[I]->constraints.insert(c);
             variables[base]->constraints.insert(c);
@@ -938,7 +940,7 @@ void StrictRelations::collectConstraintsFromModule(Module &M) {
             // Case p = b + (>=0) then b <= p
             if(!variables.count(base)) variables[base] =
                                         new StrictRelations::Variable(base);
-            Constraint* c = new LE(wle, variables[base], variables[I]);
+            Constraint* c = new RLE(wle, variables[base], variables[I]);
             NumConstraints++;
             variables[I]->constraints.insert(c);
             variables[base]->constraints.insert(c);
@@ -948,7 +950,7 @@ void StrictRelations::collectConstraintsFromModule(Module &M) {
             // Case p = b + (<0) then p < b
             if(!variables.count(base)) variables[base] =
                                         new StrictRelations::Variable(base);
-            Constraint* c = new LT(wle, variables[I], variables[base]);
+            Constraint* c = new RLT(wle, variables[I], variables[base]);
             NumConstraints++;
             variables[I]->constraints.insert(c);
             variables[base]->constraints.insert(c);
@@ -958,7 +960,7 @@ void StrictRelations::collectConstraintsFromModule(Module &M) {
             // Case p = b + (<=0) then p <= b
             if(!variables.count(base)) variables[base] =
                                         new StrictRelations::Variable(base);
-            Constraint* c = new LE(wle, variables[I], variables[base]);
+            Constraint* c = new RLE(wle, variables[I], variables[base]);
             NumConstraints++;
             variables[I]->constraints.insert(c);
             variables[base]->constraints.insert(c);
@@ -1053,22 +1055,36 @@ void StrictRelations::collectConstraintsFromModule(Module &M) {
   // Transforming the sigmas map into constraints
   for (auto i : sigmas) {
     CmpInst::Predicate pred = i.first->getPredicate();
+    bool leftNull = false;
+    bool rightNull = false;
 
     // if one of the sigma pairs is missing
-    if(i.second.first.first == NULL and i.second.second.first != NULL)
+    if(i.second.first.first == NULL and i.second.second.first != NULL){
       i.second.first.first = i.first->getOperand(0);
-    else if (i.second.first.second == NULL and i.second.second.second != NULL)
+      leftNull = true;
+    }
+    if (i.second.first.second == NULL and i.second.second.second != NULL){
       i.second.first.second = i.first->getOperand(0);
-    else if (i.second.second.first == NULL and i.second.first.first != NULL)
+      leftNull = true;
+    }
+    if (i.second.second.first == NULL and i.second.first.first != NULL){
       i.second.second.first = i.first->getOperand(1);
-    else if (i.second.second.second == NULL and i.second.first.second != NULL)
+      rightNull = true;
+    }
+    if (i.second.second.second == NULL and i.second.first.second != NULL){
       i.second.second.second = i.first->getOperand(1);
+      rightNull = true;
+    }
     
     Constraint* c;
     if(pred == CmpInst::ICMP_UGT or pred == CmpInst::ICMP_SGT) {
       if(variables.count(i.second.second.first) and
          variables.count(i.second.first.first)) {
-        c = new LT(wle, variables[i.second.second.first],
+        if (leftNull || rightNull)
+          c = new LT(wle, variables[i.second.second.first],
+                  variables[i.second.first.first], leftNull, rightNull);        
+        else 
+          c = new RLT(wle, variables[i.second.second.first],
                                     variables[i.second.first.first]);
 
         NumConstraints++;
@@ -1078,7 +1094,11 @@ void StrictRelations::collectConstraintsFromModule(Module &M) {
       }
       if(variables.count(i.second.first.second) and
          variables.count(i.second.second.second)) {
-        c = new LE(wle, variables[i.second.first.second],
+        if (leftNull || rightNull)
+          c = new LE(wle, variables[i.second.first.second],
+                        variables[i.second.second.second], leftNull, rightNull);          
+        else 
+          c = new RLE(wle, variables[i.second.first.second],
                         variables[i.second.second.second]);
 
         NumConstraints++;
@@ -1090,7 +1110,11 @@ void StrictRelations::collectConstraintsFromModule(Module &M) {
     else if(pred == CmpInst::ICMP_UGE or pred == CmpInst::ICMP_SGE) {
       if(variables.count(i.second.second.first) and
          variables.count(i.second.first.first)) {
-        c = new LE(wle, variables[i.second.second.first],
+        if (leftNull || rightNull)
+          c = new LE(wle, variables[i.second.second.first],
+                          variables[i.second.first.first], leftNull, rightNull);          
+        else 
+          c = new RLE(wle, variables[i.second.second.first],
                                     variables[i.second.first.first]);
 
         NumConstraints++;
@@ -1100,7 +1124,11 @@ void StrictRelations::collectConstraintsFromModule(Module &M) {
       }
       if(variables.count(i.second.first.second) and
          variables.count(i.second.second.second)) {
-        c = new LT(wle, variables[i.second.first.second],
+        if (leftNull || rightNull)
+          c = new LT(wle, variables[i.second.first.second],
+                        variables[i.second.second.second], leftNull, rightNull);          
+        else 
+          c = new RLT(wle, variables[i.second.first.second],
                         variables[i.second.second.second]);
 
         NumConstraints++;
@@ -1112,7 +1140,11 @@ void StrictRelations::collectConstraintsFromModule(Module &M) {
     else if(pred == CmpInst::ICMP_ULT or pred == CmpInst::ICMP_SLT) {
       if(variables.count(i.second.first.first) and
          variables.count(i.second.second.first)) {
-        c = new LT(wle, variables[i.second.first.first],
+        if (leftNull || rightNull)
+          c = new LT(wle, variables[i.second.first.first],
+                         variables[i.second.second.first], leftNull, rightNull);          
+        else 
+          c = new RLT(wle, variables[i.second.first.first],
                                     variables[i.second.second.first]);
       
         NumConstraints++;
@@ -1122,7 +1154,11 @@ void StrictRelations::collectConstraintsFromModule(Module &M) {
       }
       if(variables.count(i.second.second.second) and
          variables.count(i.second.first.second)) {
-        c = new LE(wle, variables[i.second.second.second],
+        if (leftNull || rightNull)
+          c = new LE(wle, variables[i.second.second.second],
+                        variables[i.second.first.second], leftNull, rightNull);          
+        else 
+          c = new RLE(wle, variables[i.second.second.second],
                         variables[i.second.first.second]);
 
         NumConstraints++;
@@ -1134,7 +1170,11 @@ void StrictRelations::collectConstraintsFromModule(Module &M) {
     else if(pred == CmpInst::ICMP_ULE or pred == CmpInst::ICMP_SLE) {
       if(variables.count(i.second.first.first) and
          variables.count(i.second.second.first)) {
-        c = new LE(wle, variables[i.second.first.first],
+        if (leftNull || rightNull)
+          c = new LE(wle, variables[i.second.first.first],
+                       variables[i.second.second.first], leftNull, rightNull);          
+        else 
+          c = new RLE(wle, variables[i.second.first.first],
                                     variables[i.second.second.first]);
 
         NumConstraints++;
@@ -1144,7 +1184,11 @@ void StrictRelations::collectConstraintsFromModule(Module &M) {
       }
       if(variables.count(i.second.second.second) and
          variables.count(i.second.first.second)) {
-        c = new LT(wle, variables[i.second.second.second],
+        if (leftNull || rightNull)
+          c = new LT(wle, variables[i.second.second.second],
+                        variables[i.second.first.second], leftNull, rightNull);          
+        else 
+          c = new RLT(wle, variables[i.second.second.second],
                         variables[i.second.first.second]);
 
         NumConstraints++;
@@ -1602,6 +1646,26 @@ void insertGT(StrictRelations::Variable* x,
   }
 }
 
+// LT(x) U= {y}
+void assInsertLT(StrictRelations::Variable* x,
+                               StrictRelations::Variable* y,
+                               StrictRelations::VariableSet &changed) {
+  if(!x->LT.count(y) and x != y and !x->SA.count(y)) { //Added check for SA set
+    x->LT.insert(y);
+    changed.insert(x);    
+  }
+}
+
+// GT(x) U= {y}
+void assInsertGT(StrictRelations::Variable* x,
+                               StrictRelations::Variable* y,
+                               StrictRelations::VariableSet &changed) {
+  if(!x->GT.count(y) and x != y and !x->SA.count(y)) { //Added check for SA set
+    x->GT.insert(y);
+    changed.insert(x);    
+  }
+}
+
 // SA(x) U= SA(y) //REM:
 void unionSA(StrictRelations::Variable* x,
                                StrictRelations::Variable* y,
@@ -1630,6 +1694,24 @@ void unionGT(StrictRelations::Variable* x,
   }
 }
 
+// LT(x) U= LT(y)
+void assUnionLT(StrictRelations::Variable* x,
+                               StrictRelations::Variable* y,
+                               StrictRelations::VariableSet &changed) {
+  for(auto i : y->LT) {
+    assInsertLT(x, i, changed);
+  }
+}
+
+// GT(x) U= GT(y)
+void assUnionGT(StrictRelations::Variable* x,
+                               StrictRelations::Variable* y,
+                               StrictRelations::VariableSet &changed) {
+  for(auto i : y->GT) {
+    assInsertGT(x, i, changed);
+  }
+}
+
 StrictRelations::VariableSet intersect
                           (StrictRelations::VariableSet &s1,
                            StrictRelations::VariableSet &s2) {
@@ -1638,7 +1720,7 @@ StrictRelations::VariableSet intersect
   return r;
 }
 
-void LT::resolve() const {
+void RLT::resolve() const {
   // x < y
   StrictRelations::VariableSet changed;
   
@@ -1657,7 +1739,59 @@ void LT::resolve() const {
       if(i != this) engine->push(i);
   }
 }  
+
+void LT::resolve() const {
+  // x < y (where x or y is a sigma origin)
+  StrictRelations::VariableSet changed;
+
+  if(isLeftNull){
+    // LT(y) U= LT(x) U {x}
+    assUnionLT(right, left, changed);
+    assInsertLT(right, left, changed);  
+  }
+  if (isRightNull) {
+    // GT(x) U= GT(y) U {y}
+    assUnionGT(left, right, changed);
+    assInsertGT(left, right, changed);
+  }
+  
+  // Not handling case where left side and right side origins
+  // are null. Can it happen?
+
+  // Adding back constraints from changed abstract values
+  for(auto c : changed){
+    DEBUG_WITH_TYPE("worklist", c->printStrictRelations(errs()));
+    for(auto i : c->constraints)
+      if(i != this) engine->push(i);
+  }
+} 
+
 void LE::resolve() const { 
+    // x <= y
+  StrictRelations::VariableSet changed;
+
+  if(isLeftNull){
+    // LT(y) U= LT(x)
+    assUnionLT(right, left, changed);
+  }
+  if (isRightNull) {
+    // GT(x) U= GT(y)
+    assUnionGT(left, right, changed);
+  }
+
+  // Not handling case where left side and right side origins
+  // are null. Can it happen?
+  
+  for(auto c : changed){
+    DEBUG_WITH_TYPE("worklist", c->printStrictRelations(errs()));
+    for(auto i : c->constraints)
+      if(i != this) engine->push(i);
+  }
+
+}
+
+
+void RLE::resolve() const { 
   // x <= y
   StrictRelations::VariableSet changed;
   
@@ -1803,12 +1937,30 @@ void PHI::resolve() const {
   }
 }
 
+void RLT::print(raw_ostream &OS) const {
+  if(left->v->getValueName() == NULL) OS << *(left->v);
+  else OS << left->v->getName();
+  OS << " < ";
+  if(right->v->getValueName() == NULL) OS << *(right->v);
+  else OS << right->v->getName();
+  OS << "\n";
+}
+void RLE::print(raw_ostream &OS) const {
+  if(left->v->getValueName() == NULL) OS << *(left->v);
+  else OS << left->v->getName();
+  OS << " <= ";
+  if(right->v->getValueName() == NULL) OS << *(right->v);
+  else OS << right->v->getName();
+  OS << "\n";
+}
 void LT::print(raw_ostream &OS) const {
   if(left->v->getValueName() == NULL) OS << *(left->v);
   else OS << left->v->getName();
   OS << " < ";
   if(right->v->getValueName() == NULL) OS << *(right->v);
   else OS << right->v->getName();
+  if (isLeftNull) OS << " (left is not new sigma)";
+  if (isRightNull) OS << " (right is not new sigma)";
   OS << "\n";
 }
 void LE::print(raw_ostream &OS) const {
@@ -1817,6 +1969,8 @@ void LE::print(raw_ostream &OS) const {
   OS << " <= ";
   if(right->v->getValueName() == NULL) OS << *(right->v);
   else OS << right->v->getName();
+  if (isLeftNull) OS << " (left is not new sigma)";
+  if (isRightNull) OS << " (right is not new sigma)";
   OS << "\n";
 }
 void REQ::print(raw_ostream &OS) const {

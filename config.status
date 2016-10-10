@@ -1,3 +1,8 @@
+#!/bin/bash
+echo "Using /home/junio/llvm/37 as LLVM source directory"
+echo "Using /home/junio/llvm/37/build as LLVM object directory"
+echo "Using /home/junio/llvm/37/build/Debug+Asserts/lib/.. as installation root"
+cat <<EOF > Makefile
 ##======- Makefile --------------------------------------*- Makefile -*-======##
 ##===----------------------------------------------------------------------===##
 PROJECT_NAME = SRAA
@@ -10,7 +15,9 @@ LLVM_OBJ_ROOT = /home/junio/llvm/37/build
 PROJ_SRC_ROOT = .
 PROJ_OBJ_ROOT = .
 PROJ_INSTALL_ROOT = /home/junio/llvm/37/build/Debug+Asserts/lib/..
-include $(LLVM_OBJ_ROOT)/Makefile.config
-include $(LLVM_SRC_ROOT)/Makefile.rules
+include \$(LLVM_OBJ_ROOT)/Makefile.config
+include \$(LLVM_SRC_ROOT)/Makefile.rules
 cp:
-	cp Debug+Asserts/lib/SRAA.so $(PROJ_INSTALL_ROOT)/lib -v
+	cp Debug+Asserts/lib/SRAA.so \$(PROJ_INSTALL_ROOT)/lib -v
+EOF
+echo "Generated Makefile"
