@@ -1055,34 +1055,43 @@ void StrictRelations::collectConstraintsFromModule(Module &M) {
   // Transforming the sigmas map into constraints
   for (auto i : sigmas) {
     CmpInst::Predicate pred = i.first->getPredicate();
-    bool leftNull = false;
-    bool rightNull = false;
+    std::map <const Value *, bool> nulls;
 
     // if one of the sigma pairs is missing
+    // cmp A op B
+    // A did not generate a TRUE sigma, but B did
     if(i.second.first.first == NULL and i.second.second.first != NULL){
-      i.second.first.first = i.first->getOperand(0);
-      leftNull = true;
+      i.second.first.first = i.first->getOperand(0);      
+      nulls[i.second.first.first] = true;
+      nulls[i.second.second.first] = false;
     }
+    // A did not generate a FALSE sigma but B did
     if (i.second.first.second == NULL and i.second.second.second != NULL){
       i.second.first.second = i.first->getOperand(0);
-      leftNull = true;
+      nulls[i.second.first.second] = true;
+      nulls[i.second.second.second] = false;
     }
+    // B did not generate a TRUE sigma but A did
     if (i.second.second.first == NULL and i.second.first.first != NULL){
       i.second.second.first = i.first->getOperand(1);
-      rightNull = true;
+      nulls[i.second.second.first] = true;
+      nulls[i.second.first.first] = false;
     }
+    // B did not generate a FALSE sigma but A did
     if (i.second.second.second == NULL and i.second.first.second != NULL){
       i.second.second.second = i.first->getOperand(1);
-      rightNull = true;
+      nulls[i.second.second.second] = true;
+      nulls[i.second.first.second] = false;
     }
     
     Constraint* c;
     if(pred == CmpInst::ICMP_UGT or pred == CmpInst::ICMP_SGT) {
       if(variables.count(i.second.second.first) and
          variables.count(i.second.first.first)) {
-        if (leftNull || rightNull)
+        if (nulls[i.second.second.first] or nulls[i.second.first.first])
           c = new LT(wle, variables[i.second.second.first],
-                  variables[i.second.first.first], leftNull, rightNull);        
+                variables[i.second.first.first], nulls[i.second.second.first], 
+                                                  nulls[i.second.first.first]);        
         else 
           c = new RLT(wle, variables[i.second.second.first],
                                     variables[i.second.first.first]);
@@ -1094,10 +1103,10 @@ void StrictRelations::collectConstraintsFromModule(Module &M) {
       }
       if(variables.count(i.second.first.second) and
          variables.count(i.second.second.second)) {
-        if (leftNull || rightNull)
+        if (nulls[i.second.first.second] or nulls[i.second.second.second])
           c = new LE(wle, variables[i.second.first.second],
-                        variables[i.second.second.second], leftNull, rightNull);          
-        else 
+                        variables[i.second.second.second], nulls[i.second.first.second], nulls[i.second.second.second]);          
+        else
           c = new RLE(wle, variables[i.second.first.second],
                         variables[i.second.second.second]);
 
@@ -1110,9 +1119,9 @@ void StrictRelations::collectConstraintsFromModule(Module &M) {
     else if(pred == CmpInst::ICMP_UGE or pred == CmpInst::ICMP_SGE) {
       if(variables.count(i.second.second.first) and
          variables.count(i.second.first.first)) {
-        if (leftNull || rightNull)
+        if (nulls[i.second.second.first] or nulls[i.second.first.first])
           c = new LE(wle, variables[i.second.second.first],
-                          variables[i.second.first.first], leftNull, rightNull);          
+                          variables[i.second.first.first], nulls[i.second.second.first], nulls[i.second.first.first]);          
         else 
           c = new RLE(wle, variables[i.second.second.first],
                                     variables[i.second.first.first]);
@@ -1124,10 +1133,10 @@ void StrictRelations::collectConstraintsFromModule(Module &M) {
       }
       if(variables.count(i.second.first.second) and
          variables.count(i.second.second.second)) {
-        if (leftNull || rightNull)
+        if (nulls[i.second.first.second] or nulls[i.second.second.second])
           c = new LT(wle, variables[i.second.first.second],
-                        variables[i.second.second.second], leftNull, rightNull);          
-        else 
+                        variables[i.second.second.second], nulls[i.second.first.second], nulls[i.second.second.second]);          
+        else
           c = new RLT(wle, variables[i.second.first.second],
                         variables[i.second.second.second]);
 
@@ -1140,10 +1149,10 @@ void StrictRelations::collectConstraintsFromModule(Module &M) {
     else if(pred == CmpInst::ICMP_ULT or pred == CmpInst::ICMP_SLT) {
       if(variables.count(i.second.first.first) and
          variables.count(i.second.second.first)) {
-        if (leftNull || rightNull)
+        if (nulls[i.second.first.first] or nulls[i.second.second.first])
           c = new LT(wle, variables[i.second.first.first],
-                         variables[i.second.second.first], leftNull, rightNull);          
-        else 
+                         variables[i.second.second.first], nulls[i.second.first.first], nulls[i.second.second.first]);          
+        else
           c = new RLT(wle, variables[i.second.first.first],
                                     variables[i.second.second.first]);
       
@@ -1154,10 +1163,10 @@ void StrictRelations::collectConstraintsFromModule(Module &M) {
       }
       if(variables.count(i.second.second.second) and
          variables.count(i.second.first.second)) {
-        if (leftNull || rightNull)
+        if (nulls[i.second.second.second] or nulls[i.second.first.second])
           c = new LE(wle, variables[i.second.second.second],
-                        variables[i.second.first.second], leftNull, rightNull);          
-        else 
+                        variables[i.second.first.second], nulls[i.second.second.second], nulls[i.second.first.second]);          
+        else
           c = new RLE(wle, variables[i.second.second.second],
                         variables[i.second.first.second]);
 
@@ -1170,10 +1179,10 @@ void StrictRelations::collectConstraintsFromModule(Module &M) {
     else if(pred == CmpInst::ICMP_ULE or pred == CmpInst::ICMP_SLE) {
       if(variables.count(i.second.first.first) and
          variables.count(i.second.second.first)) {
-        if (leftNull || rightNull)
+        if (nulls[i.second.first.first] or nulls[i.second.second.first])
           c = new LE(wle, variables[i.second.first.first],
-                       variables[i.second.second.first], leftNull, rightNull);          
-        else 
+                       variables[i.second.second.first], nulls[i.second.first.first], nulls[i.second.second.first]);          
+        else
           c = new RLE(wle, variables[i.second.first.first],
                                     variables[i.second.second.first]);
 
@@ -1184,10 +1193,10 @@ void StrictRelations::collectConstraintsFromModule(Module &M) {
       }
       if(variables.count(i.second.second.second) and
          variables.count(i.second.first.second)) {
-        if (leftNull || rightNull)
+        if (nulls[i.second.second.second] or nulls[i.second.first.second])
           c = new LT(wle, variables[i.second.second.second],
-                        variables[i.second.first.second], leftNull, rightNull);          
-        else 
+                        variables[i.second.first.second], nulls[i.second.first.second], nulls[i.second.first.second]);          
+        else
           c = new RLT(wle, variables[i.second.second.second],
                         variables[i.second.first.second]);
 
@@ -2115,12 +2124,13 @@ StrictRelations::TNode* StrictRelations::findNode(std::set<TNode*> tNodes,
 void StrictRelations::buildTGraph(std::unordered_map<const Value*, 
                     StrictRelations::Variable*> variables, raw_ostream &OS){
   for(auto i : variables) {
-    TNode* to = addNode(i.second);
+    ////TNode* to = addNode(i.second);
     for(auto j : i.second->LT) {
       if(i.second->GT.count(j))
-        OS << "\n=== LOOP:" << to->getName() << " - " << j->v->getName() << "\n"; 
-      TNode* from = addNode(j);
-      from->addEdgeTo(to);
+        //OS << "\n=== LOOP:" << to->getName() << " - " << j->v->getName() << "\n"; 
+        OS << "\n === LOOP:" << i.second->v->getName() << " - " << j->v->getName() << "\n"; 
+      ////TNode* from = addNode(j);
+      ////from->addEdgeTo(to);
     }
   }
 }

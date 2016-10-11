@@ -7,8 +7,8 @@
 #include "llvm/Support/raw_ostream.h"
 #include "llvm/Pass.h"
 
-//#include "../RangeAnalysis/RangeAnalysis.h"
-#include "include/RangeAnalysis/RangeAnalysis.h"
+#include "../RangeAnalysis/RangeAnalysis.h"
+//#include "include/RangeAnalysis/RangeAnalysis.h"
 
 #include <queue>
 #include <set>
