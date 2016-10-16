@@ -210,7 +210,7 @@ public:
     std::unordered_set<const Value*> locs;
     
     DepNode(const Value* V) : v(V) {
-      arg = false; unk = false; global = false; call = false;
+      arg = false; unk = false; global = false; call = false; alloca = false;
       mustalias = new std::unordered_set<DepNode*>();
       mustalias->insert(this);
     }

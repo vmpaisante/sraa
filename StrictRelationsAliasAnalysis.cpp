@@ -1351,10 +1351,12 @@ void StrictRelations::collectTypes() {
     else if(const CallInst* p = dyn_cast<CallInst>(i.first)) { 
         Function* CF = p->getCalledFunction();
         if(CF) {
-          if(strcmp( CF->getName().data(), "malloc") == 0)
-           i.second->alloca = true;
-          else if(strcmp( CF->getName().data(), "calloc") == 0)
+          if(strcmp( CF->getName().data(), "malloc") == 0) {
             i.second->alloca = true;
+          }
+          else if(strcmp( CF->getName().data(), "calloc") == 0) {
+            i.second->alloca = true;
+          }
           else i.second->call = true;
         } else { 
           i.second->unk = true;
@@ -1380,10 +1382,10 @@ void StrictRelations::propagateTypes(){
   std::set<DepNode*> unks;
   std::set<DepNode*> allocas;
   for(auto i : nodes){
-    if(i.second->arg) args.insert(i.second);  
-    if(i.second->global) globals.insert(i.second); 
-    if(i.second->unk) unks.insert(i.second);
-    if(i.second->alloca) allocas.insert(i.second);  
+    if(i.second->arg){ args.insert(i.second); }
+    if(i.second->global){ globals.insert(i.second); }
+    if(i.second->unk){ unks.insert(i.second); }
+    if(i.second->alloca){ allocas.insert(i.second); }
   }
   std::queue<DepNode*>to_visit;
   std::unordered_set<DepNode*>visited;
