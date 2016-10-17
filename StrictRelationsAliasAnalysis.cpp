@@ -41,6 +41,7 @@ STATISTIC(NumNoAlias, "Number of NoAlias answers");
 STATISTIC(NumNoAlias1, "Number of NoAlias answers in test 1");
 STATISTIC(NumNoAlias2, "Number of NoAlias answers in test 2");
 STATISTIC(NumNoAlias3, "Number of NoAlias answers in test 3");
+STATISTIC(NumEvil, "Number of evil things that happened");
 
 // Register this pass...
 char StrictRelations::ID = 0;
@@ -423,6 +424,11 @@ bool StrictRelations::runOnModule(Module &M) {
   t = clock() - t;
   phase3 = ((float)t)/CLOCKS_PER_SEC;
   
+  for(auto i : variables) {
+    if(i.second->GT.intersects(i.second->LT))
+      NumEvil++;
+  }
+  
   DEBUG_WITH_TYPE("phases", errs() << "Finished.\n");
   phases = phase1 + phase2 + phase3;
   
@@ -522,6 +528,7 @@ void StrictRelations::collectConstraintsFromModule(Module &M) {
             if(!variables.count(op2)) variables[op2] =
                                           new StrictRelations::Variable(op2);
             Constraint* c = new REQ(wle, variables[I], variables[op2]);
+            variables[I]->coalesce(variables[op2]);
             NumConstraints++;
             variables[I]->constraints.insert(c);
             variables[op2]->constraints.insert(c);
@@ -574,6 +581,7 @@ void StrictRelations::collectConstraintsFromModule(Module &M) {
             if(!variables.count(op1)) variables[op1] =
                                           new StrictRelations::Variable(op1);
             Constraint* c = new REQ(wle, variables[I], variables[op1]);
+            variables[I]->coalesce(variables[op1]);
             NumConstraints++;
             variables[I]->constraints.insert(c);
             variables[op1]->constraints.insert(c);
@@ -637,6 +645,7 @@ void StrictRelations::collectConstraintsFromModule(Module &M) {
               if(!variables.count(op2)) variables[op2] =
                                           new StrictRelations::Variable(op2);
               Constraint* c = new REQ(wle, variables[I], variables[op2]);
+              variables[I]->coalesce(variables[op2]);
               NumConstraints++;
               variables[I]->constraints.insert(c);
               variables[op2]->constraints.insert(c);
@@ -847,6 +856,7 @@ void StrictRelations::collectConstraintsFromModule(Module &M) {
               if(!variables.count(op1)) variables[op1] =
                                           new StrictRelations::Variable(op1);
             Constraint* c = new REQ(wle, variables[I], variables[op1]);
+            variables[I]->coalesce(variables[op1]);
             NumConstraints++;
             variables[I]->constraints.insert(c);
             variables[op1]->constraints.insert(c);
@@ -904,6 +914,7 @@ void StrictRelations::collectConstraintsFromModule(Module &M) {
             if(!variables.count(base)) variables[base] =
                                         new StrictRelations::Variable(base);
             Constraint* c = new REQ(wle, variables[I], variables[base]);
+            variables[I]->coalesce(variables[base]);
             NumConstraints++;
             variables[I]->constraints.insert(c);
             variables[base]->constraints.insert(c);
@@ -1025,6 +1036,7 @@ void StrictRelations::collectConstraintsFromModule(Module &M) {
           if(!variables.count(op)) variables[op] =
                                           new StrictRelations::Variable(op);
           Constraint* c = new REQ(wle, variables[I], variables[op]);
+          variables[I]->coalesce(variables[op]);
 
           NumConstraints++;
           variables[I]->constraints.insert(c);
@@ -1045,18 +1057,20 @@ void StrictRelations::collectConstraintsFromModule(Module &M) {
     CmpInst::Predicate pred = i.first->getPredicate();
 
     // if one of the sigma pairs is missing
-    if(i.second.first.first == NULL and i.second.second.first != NULL)
+    /*if(i.second.first.first == NULL and i.second.second.first != NULL)
       i.second.first.first = i.first->getOperand(0);
     if (i.second.first.second == NULL and i.second.second.second != NULL)
       i.second.first.second = i.first->getOperand(0);
     if (i.second.second.first == NULL and i.second.first.first != NULL)
       i.second.second.first = i.first->getOperand(1);
     if (i.second.second.second == NULL and i.second.first.second != NULL)
-      i.second.second.second = i.first->getOperand(1);
+      i.second.second.second = i.first->getOperand(1);*/
     
     Constraint* c;
     if(pred == CmpInst::ICMP_UGT or pred == CmpInst::ICMP_SGT) {
-      if(variables.count(i.second.second.first) and
+      if(i.second.second.first != NULL and
+         i.second.first.first != NULL and
+         variables.count(i.second.second.first) and
          variables.count(i.second.first.first)) {
         c = new LT(wle, variables[i.second.second.first],
                                     variables[i.second.first.first]);
@@ -1066,7 +1080,9 @@ void StrictRelations::collectConstraintsFromModule(Module &M) {
         variables[i.second.first.first]->constraints.insert(c);
         wle->add(c);
       }
-      if(variables.count(i.second.first.second) and
+      if(i.second.first.second != NULL and
+         i.second.second.second != NULL and
+         variables.count(i.second.first.second) and
          variables.count(i.second.second.second)) {
         c = new LE(wle, variables[i.second.first.second],
                         variables[i.second.second.second]);
@@ -1078,7 +1094,9 @@ void StrictRelations::collectConstraintsFromModule(Module &M) {
       }
     }
     else if(pred == CmpInst::ICMP_UGE or pred == CmpInst::ICMP_SGE) {
-      if(variables.count(i.second.second.first) and
+      if(i.second.second.first != NULL and
+         i.second.first.first != NULL and
+         variables.count(i.second.second.first) and
          variables.count(i.second.first.first)) {
         c = new LE(wle, variables[i.second.second.first],
                                     variables[i.second.first.first]);
@@ -1088,7 +1106,9 @@ void StrictRelations::collectConstraintsFromModule(Module &M) {
         variables[i.second.first.first]->constraints.insert(c);
         wle->add(c);
       }
-      if(variables.count(i.second.first.second) and
+      if(i.second.first.second != NULL and
+         i.second.second.second != NULL and
+         variables.count(i.second.first.second) and
          variables.count(i.second.second.second)) {
         c = new LT(wle, variables[i.second.first.second],
                         variables[i.second.second.second]);
@@ -1100,7 +1120,9 @@ void StrictRelations::collectConstraintsFromModule(Module &M) {
       }
     }
     else if(pred == CmpInst::ICMP_ULT or pred == CmpInst::ICMP_SLT) {
-      if(variables.count(i.second.first.first) and
+      if(i.second.first.first != NULL and
+         i.second.second.first != NULL and
+         variables.count(i.second.first.first) and
          variables.count(i.second.second.first)) {
         c = new LT(wle, variables[i.second.first.first],
                                     variables[i.second.second.first]);
@@ -1110,7 +1132,9 @@ void StrictRelations::collectConstraintsFromModule(Module &M) {
         variables[i.second.second.first]->constraints.insert(c);
         wle->add(c);
       }
-      if(variables.count(i.second.second.second) and
+      if(i.second.second.second != NULL and
+         i.second.first.second != NULL and
+         variables.count(i.second.second.second) and
          variables.count(i.second.first.second)) {
         c = new LE(wle, variables[i.second.second.second],
                         variables[i.second.first.second]);
@@ -1122,7 +1146,9 @@ void StrictRelations::collectConstraintsFromModule(Module &M) {
       }
     }
     else if(pred == CmpInst::ICMP_ULE or pred == CmpInst::ICMP_SLE) {
-      if(variables.count(i.second.first.first) and
+      if(i.second.first.first != NULL and
+         i.second.second.first != NULL and
+         variables.count(i.second.first.first) and
          variables.count(i.second.second.first)) {
         c = new LE(wle, variables[i.second.first.first],
                                     variables[i.second.second.first]);
@@ -1132,7 +1158,9 @@ void StrictRelations::collectConstraintsFromModule(Module &M) {
         variables[i.second.second.first]->constraints.insert(c);
         wle->add(c);
       }
-      if(variables.count(i.second.second.second) and
+      if(i.second.second.second != NULL and
+         i.second.first.second != NULL and
+         variables.count(i.second.second.second) and
          variables.count(i.second.first.second)) {
         c = new LT(wle, variables[i.second.second.second],
                         variables[i.second.first.second]);
@@ -1144,10 +1172,13 @@ void StrictRelations::collectConstraintsFromModule(Module &M) {
       }
     }
     else if(pred == CmpInst::ICMP_EQ) {
-      if(variables.count(i.second.first.first) and
+      if(i.second.first.first != NULL and
+         i.second.second.first != NULL and
+         variables.count(i.second.first.first) and
          variables.count(i.second.second.first)) {
         c = new REQ(wle, variables[i.second.first.first],
                                     variables[i.second.second.first]);
+        variables[i.second.first.first]->coalesce(variables[i.second.second.first]);
 
         NumConstraints++;
         variables[i.second.first.first]->constraints.insert(c);
@@ -1156,10 +1187,13 @@ void StrictRelations::collectConstraintsFromModule(Module &M) {
       }
     }
     else if(pred == CmpInst::ICMP_NE) {
-      if(variables.count(i.second.first.second) and
+      if(i.second.first.second != NULL and
+         i.second.second.second != NULL and
+         variables.count(i.second.first.second) and
          variables.count(i.second.second.second)) {
         c = new REQ(wle, variables[i.second.first.second],
                                     variables[i.second.second.second]);
+        variables[i.second.first.second]->coalesce(variables[i.second.second.second]);
 
         NumConstraints++;
         variables[i.second.first.second]->constraints.insert(c);
@@ -1679,8 +1713,24 @@ void PHI::resolve() const {
   StrictRelations::VariableSet changed;
   // Growth checks
   bool gu = false, gd = false;
-  for (auto i : operands) if (i->LT.count(left)) { gu = true; break; }
-  for (auto i : operands) if (i->GT.count(left)) { gd = true; break; }
+  //for (auto i : operands) if (i->LT.count(left)) { gu = true; break; }
+  //for (auto i : operands) if (i->GT.count(left)) { gd = true; break; }
+  
+  for (auto i : operands) {
+    for(auto j : *(left->mustalias)) {
+      if (i->LT.count(j)) { 
+        gu = true; break; 
+      }
+    }
+  }
+  
+  for (auto i : operands) {
+    for(auto j : *(left->mustalias)) {
+      if (i->GT.count(j)) { 
+        gd = true; break; 
+      }
+    }
+  }
   
   StrictRelations::VariableSet ULT, UGT;
   
@@ -1730,8 +1780,14 @@ void PHI::resolve() const {
     }
   }
   // Remove left from ULT and UGT
-  ULT.erase(left);
-  UGT.erase(left);
+  //ULT.erase(left);
+  //UGT.erase(left);
+  
+  for(auto i : *(left->mustalias)) {
+    ULT.erase(i);
+    UGT.erase(i);
+  }
+  
   // U= part
     for(auto i : ULT) insertLT(left, i, changed);
     for(auto i : UGT) insertGT(left, i, changed);
@@ -1786,6 +1842,14 @@ void PHI::print(raw_ostream &OS) const {
     OS << "; ";
   }
   OS << "\n";
+}
+
+void StrictRelations::Variable::coalesce (StrictRelations::Variable* other){
+  if(mustalias == other->mustalias) return;
+  std::unordered_set<Variable*>* to_coalesce = other->mustalias;
+  for(auto i : *to_coalesce) i->mustalias = mustalias;
+  mustalias->insert(to_coalesce->begin(), to_coalesce->end());
+  delete to_coalesce;           
 }
 
 void StrictRelations::Variable::printStrictRelations(raw_ostream &OS) {

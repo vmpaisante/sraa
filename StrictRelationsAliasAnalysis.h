@@ -141,7 +141,7 @@ public:
       bool operator!=(const VariableSetIterator &RHS) const {
         return it != RHS.it;
       }
-   
+      
       VariableSetIterator() {
       }
    
@@ -182,6 +182,11 @@ public:
     }
     
     bool empty() {return set.empty();}
+    
+    bool intersects (const VariableSet &Other) {
+      return set.intersects(Other.set);
+    }
+  
   };
   
   struct Variable {
@@ -189,9 +194,16 @@ public:
     VariableSet LT;
     VariableSet GT;
     std::unordered_set<Constraint*> constraints;
-    Variable(const Value* V) : v(V) { }
+    Variable(const Value* V) : v(V) { 
+      mustalias = new std::unordered_set<Variable*>();
+      mustalias->insert(this);  
+    }
     
     void printStrictRelations(raw_ostream &OS);
+    
+    // must alias information
+    std::unordered_set<Variable*>* mustalias;
+    void coalesce (Variable*);
   };
      
   //Forward declarations
