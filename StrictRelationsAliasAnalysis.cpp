@@ -328,7 +328,10 @@ bool StrictRelations::aliastest2(const Value* p1, const Value* p2) {
                                   nodes[gep2->getPointerOperand()]->mustalias) { 
         t = clock() - t;
         test2 += ((float)t)/CLOCKS_PER_SEC;
-        return disjointGEPs(gep1, gep2);
+        if(disjointGEPs(gep1, gep2)) { 
+          NumNoAlias2++;
+          return true;
+        } else { return false; }
       }
     }
   t = clock() - t;
