@@ -20,10 +20,6 @@ $TrimRepeatedPrefix = 1;
  ["MayAlias", '([0-9.]+).*may alias responses'],
  ["PartialAlias", '([0-9.]+).*partial alias responses'],
  ["MustAlias", '([0-9.]+).*must alias responses'],
- [],
- ["NumVariables", '([0-9.]+).*Number of variables'],
- ["NumConstraints", '([0-9.]+).*Number of constraints'],
- ["NumResolve", '([0-9.]+).*Number of resolve operations'],
  );
 
 

@@ -21,9 +21,16 @@ $TrimRepeatedPrefix = 1;
  ["PartialAlias", '([0-9.]+).*partial alias responses'],
  ["MustAlias", '([0-9.]+).*must alias responses'],
  [],
- ["NumVariables", '([0-9.]+).*Number of variables'],
+ ["NumVariablesConst", '([0-9.]+).*Number of variables in constraints'],
  ["NumConstraints", '([0-9.]+).*Number of constraints'],
- ["NumResolve", '([0-9.]+).*Number of resolve operations'],
+ ["NumResolves", '([0-9.]+).*Number of resolve operations'],
+ ["NumNodes", '([0-9.]+).*Number of dep graph nodes'],
+ ["NumEdges", '([0-9.]+).*Number of dep graph edges'],
+ ["NumInst", '([0-9.]+).*Number of instructions'],
+ [],
+ ["NoAliasTest1", '([0-9.]+).*Number of NoAlias answers in test 1'],
+ ["NoAliasTest2", '([0-9.]+).*Number of NoAlias answers in test 2'],
+ ["NoAliasTest3", '([0-9.]+).*Number of NoAlias answers in test 3'],
  );
 
 
