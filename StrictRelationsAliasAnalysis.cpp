@@ -1749,11 +1749,7 @@ void PHI::resolve() const {
     
     for (auto e = operands.end(); i != e; i++)
       if(!(*i)->LT.count(left)) ULT = intersect(ULT, (*i)->LT);
-<<<<<<< HEAD
-    
-=======
      
->>>>>>> scp
   } else {
     // LT(x) U= I( LT(xi) )
     auto i = operands.begin();
