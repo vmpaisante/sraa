@@ -261,14 +261,19 @@ StrictRelations::alias(const MemoryLocation &LocA, const MemoryLocation &LocB) {
   p2 = LocB.Ptr;
   if(nodes[p1]->mustalias == nodes[p2]->mustalias) return MustAlias;
   
+  //bool t3 = aliastest3(p1, p2);
+  //if(t3) { NumNoAlias++; return NoAlias;}
+  
+  //bool t2 = aliastest2(p1, p2);
+  //if(t2) { NumNoAlias++; return NoAlias;} 
+  
   bool t1 = aliastest1(p1, p2);
-  bool t2 = aliastest2(p1, p2);
-  bool t3 = aliastest3(p1, p2);
+  if(t1) { NumNoAlias++; return NoAlias;}
+    
+  //if(t1 or t2 or t3){ NumNoAlias++; return NoAlias;}
+  //else return AliasAnalysis::alias(LocA, LocB);
   
-  if(t1 or t2 or t3){ NumNoAlias++; return NoAlias;}
-  else return AliasAnalysis::alias(LocA, LocB);
-  
-  AliasAnalysis::alias(LocA, LocB);   
+  return AliasAnalysis::alias(LocA, LocB);   
 }
 
 bool StrictRelations::aliastest1(const Value* p1, const Value* p2) {
@@ -430,6 +435,11 @@ bool StrictRelations::runOnModule(Module &M) {
   for(auto i : variables) {
     if(i.second->GT.intersects(i.second->LT))
       NumEvil++;
+  }
+  
+  errs() << "-------------------------\nResults: \n";
+  for(auto i : variables){
+    i.second->printStrictRelations(errs());
   }
   
   DEBUG_WITH_TYPE("phases", errs() << "Finished.\n");
