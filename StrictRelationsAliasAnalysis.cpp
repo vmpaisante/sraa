@@ -236,7 +236,7 @@ bool StrictRelations::disjointGEPs( const GetElementPtrInst* G1,
       if(r == G or r == E) r = G;
       else r = N;
     } else if(c == N) {
-      return N;
+      return false;
     }
         
     if(i1 != ie1) i1++;
@@ -261,17 +261,17 @@ StrictRelations::alias(const MemoryLocation &LocA, const MemoryLocation &LocB) {
   p2 = LocB.Ptr;
   if(nodes[p1]->mustalias == nodes[p2]->mustalias) return MustAlias;
   
-  //bool t3 = aliastest3(p1, p2);
-  //if(t3) { NumNoAlias++; return NoAlias;}
+  bool t3 = aliastest3(p1, p2);
+  if(t3) { NumNoAlias++; return NoAlias;}
   
-  //bool t2 = aliastest2(p1, p2);
-  //if(t2) { NumNoAlias++; return NoAlias;} 
+  bool t2 = aliastest2(p1, p2);
+  if(t2) { NumNoAlias++; return NoAlias;} 
   
   bool t1 = aliastest1(p1, p2);
   if(t1) { NumNoAlias++; return NoAlias;}
     
-  //if(t1 or t2 or t3){ NumNoAlias++; return NoAlias;}
-  //else return AliasAnalysis::alias(LocA, LocB);
+  if(t1 or t2 or t3){ NumNoAlias++; return NoAlias;}
+  else return AliasAnalysis::alias(LocA, LocB);
   
   return AliasAnalysis::alias(LocA, LocB);   
 }
